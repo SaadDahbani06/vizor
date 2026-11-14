@@ -1,5 +1,10 @@
 # Milestone 5: dashboard and product-level Scenario Lab (2026-11-14)
 
+> **Update (Milestone 5.1):** the Monte Carlo error sampling described below changed from
+> 7-day blocks to whole historical windows, because the weekly blocks made multi-week totals too
+> narrow. Ranges quoted here are the Milestone 5 values; see `docs/MILESTONE_5_1_CALIBRATION.md`
+> for the check, the new values, and the fact that no recommendation changed.
+
 Everything below was produced by running the code on 2026-11-14. The business is still
 **synthetic** (Lone Star Taqueria, Austin TX). Nothing here is validated on a real business, and
 no live API was called in this milestone. Gemini and Photon code paths were exercised offline,

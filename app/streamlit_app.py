@@ -278,7 +278,9 @@ def page_overview() -> None:
             st.altair_chart(charts.inventory_health(views.inventory_frame(t, nd)), width="stretch")
             st.caption(f"Bars: units the ingredients on hand can make at the forecast menu mix "
                        f"(physical stock). Black tick: forecast demand until the next delivery in "
-                       f"{nd} days (prediction). Colour: share of simulated weeks with unmet demand.")
+                       f"{nd} days (prediction). Colour: share of simulated weeks with unmet demand — a "
+                       "simulation frequency, not a validated probability (sell-outs are too rare in "
+                       "the history to check it).")
     with c4, st.container(key="panel_bi"):
         st.markdown("#### Business intelligence")
         if ctx is None:
@@ -412,7 +414,7 @@ def page_revenue_ops() -> None:
                               "gross_margin_pct": st.column_config.ProgressColumn("Gross margin", format="%.1f%%", min_value=0, max_value=100, help="(revenue − ingredient cost) / revenue"),
                               "sellable_units": st.column_config.NumberColumn("Available stock (units)", format="%.0f", help="Units the ingredients on hand can make at the forecast menu mix"),
                               "forecast_demand_7d": st.column_config.NumberColumn("Forecast demand (7 d)", format="%.0f", help="Model forecast of customer demand, next 7 days"),
-                              "stockout_risk_7d": st.column_config.ProgressColumn("Stock-out risk (7 d)", format="%.0f%%", min_value=0, max_value=100, help="Share of simulated weeks with ≥1% of demand unmet under the current ordering plan"),
+                              "stockout_risk_7d": st.column_config.ProgressColumn("Stock-out risk (7 d)", format="%.0f%%", min_value=0, max_value=100, help="Share of simulated weeks with ≥1% of demand unmet under the current ordering plan. A simulation frequency, not a validated probability."),
                               "days_of_supply": st.column_config.NumberColumn("Days of supply", format="%.1f")})
         rows = (ev.selection.rows if ev is not None and hasattr(ev, "selection") else []) or []
         if rows:
@@ -493,11 +495,17 @@ def page_revenue_ops() -> None:
         target = st.selectbox("Metric", targets, key="fc_target")
         with st.spinner("Running chronological validation..."):
             fc = run_tool(s, "forecast_business", {"target": target})
-        a, b, c3 = st.columns(3)
+        v = fc["interval_80_total_validation"]
+        a, b, c3, c4 = st.columns(4)
         a.metric("Next 28 days (point)", f"{fc['point_total']:,.0f}")
-        b.metric("80% interval", f"{fc['interval_80_total'][0]:,.0f} – {fc['interval_80_total'][1]:,.0f}")
-        c3.metric("Final-test WAPE", f"{fc['final_test']['wape']}",
-                  f"coverage {fc['final_test']['interval_80_coverage']}", delta_color="off")
+        b.metric("80% range for the 28-day total", f"{fc['interval_80_total'][0]:,.0f} – {fc['interval_80_total'][1]:,.0f}",
+                 help=fc["interval_method"])
+        c3.metric("Range check: past 28-day totals inside", f"{v['total_hits']}/{v['windows']}",
+                  f"{v['total_coverage']:.0%} (target 80%)", delta_color="off", delta_arrow="off",
+                  help=v["scheme"] + ". 95% uncertainty of this coverage estimate: "
+                       f"{v['total_coverage_95ci'][0]:.0%}–{v['total_coverage_95ci'][1]:.0%}.")
+        c4.metric("Final-test WAPE (point accuracy)", f"{fc['final_test']['wape']}")
+        _range_warning(v)
         from decisiondesk.decision.baseline import make_draws
         bundle = s.bundle((target,))
         tf = bundle.targets[target]
@@ -512,9 +520,25 @@ def page_revenue_ops() -> None:
                                               {"Actual": "Actual", "Forecast": "Forecast"},
                                               colors={"Actual": T.INK, "Forecast": T.COBALT},
                                               dashed=("Forecast",), y_format=",.0f"), width="stretch")
+        st.caption(f"Band: 10th–90th percentile of simulated days (daily ranges cover "
+                   f"{v['daily_coverage']:.0%} of past out-of-sample days). The 28-day total range "
+                   "above is a different, wider quantity: a sum of correlated days.")
         st.write(f"Selected by validation: **{fc['selected_model']}** — {fc['selection_reason']}")
         st.dataframe(pd.DataFrame(fc["leaderboard"]), width="stretch", hide_index=True)
         st.caption(fc["caveat"])
+
+
+def _range_warning(v: dict) -> None:
+    """Warn when a displayed range is not validated or its check is far from the 80% target."""
+    if not v.get("windows"):
+        st.warning("This range is NOT validated: there are no out-of-sample windows to check it on.")
+    elif not v.get("assessable"):
+        st.warning(f"Range checked on only {v['windows']} past windows: calibration is not established.")
+    elif v["total_coverage"] < 0.65:
+        st.warning(f"Range is likely TOO NARROW: only {v['total_coverage']:.0%} of past totals fell inside.")
+    elif v["total_coverage"] > 0.92:
+        st.info(f"Range is conservative: {v['total_coverage']:.0%} of past totals fell inside an 80% range "
+                "(early backtest windows had larger errors). Treat it as a cautious band.")
 
 
 def product_detail(ctx, name: str, table: pd.DataFrame) -> None:
@@ -569,11 +593,14 @@ def product_detail(ctx, name: str, table: pd.DataFrame) -> None:
     st.markdown("#### Expected ingredient consumption " + T.origin("forecast"), unsafe_allow_html=True)
     st.dataframe(use[use["per unit"] > 0].round(2), hide_index=True, width="stretch")
     b = ctx.boards[pid]
+    from decisiondesk.calibration import product_validation
+    v7, v28 = product_validation(ctx, pid, 7), product_validation(ctx, pid, 28)
     st.caption(f"Demand model: {b['selected_model']} — {b['selection_reason']}. Final-test MAE "
-               f"{b['test_mae']:.1f} units/day (seasonal-naive {b['seasonal_naive_test_mae']:.1f}); "
-               f"80% interval coverage {b['test_interval_coverage_80']:.0%} on the test period "
-               f"{b['test_period'][0]}–{b['test_period'][1]}. Synthetic data: this tests the software, "
-               "not real-world accuracy.")
+               f"{b['test_mae']:.1f} units/day (seasonal-naive {b['seasonal_naive_test_mae']:.1f}). "
+               f"Monte Carlo demand ranges, checked out of sample: {v7.total_hits}/{v7.windows} past "
+               f"7-day totals and {v28.total_hits}/{v28.windows} past 28-day totals inside their 80% "
+               f"range; daily coverage {v28.daily_coverage:.0%}. Synthetic data: this tests the "
+               "software, not real-world accuracy.")
 
 
 # ================================================================================ SCENARIO LAB
@@ -725,6 +752,12 @@ def lab(ctx) -> None:
                     f'futures. Cash and profit differ because ingredient purchases are paid net-7 and '
                     f'unsold stock stays on the shelf. <span class="legend-row">Computed in {ms:.0f} ms.</span></div>',
                     unsafe_allow_html=True)
+        rv = cmp_["range_validation"]
+        st.caption(f"Range check ({h}-day totals, forecast-error part, out of sample): revenue "
+                   f"{rv['revenue_total']['total_hits']}/{rv['revenue_total']['windows']}, profit "
+                   f"{rv['profit_total']['total_hits']}/{rv['profit_total']['windows']} past windows inside "
+                   f"their 80% range. NOT validated: the assumption ranges and the difference between "
+                   f"options (no counterfactual outcomes exist).")
         tabs = st.tabs(["Revenue & profit", "Demand vs supply", "Product impact", "Uncertainty"])
         with tabs[0]:
             c1, c2 = st.columns(2)
@@ -732,7 +765,9 @@ def lab(ctx) -> None:
                             width="stretch")
             c2.altair_chart(charts.band_compare(views.band_frame(scen, base, "profit"), title="Daily operating profit"),
                             width="stretch")
-            st.caption("Lines: mean of simulated paths; bands: 10th–90th percentile. Grey dashed = current plan.")
+            st.caption("Lines: mean of simulated paths; bands: 10th–90th percentile of simulated days "
+                       f"(daily ranges cover {rv['revenue_total']['daily_coverage']:.0%} of past out-of-sample "
+                       "days for tracked revenue). Grey dashed = current plan.")
         with tabs[1]:
             st.altair_chart(charts.demand_supply(views.demand_supply_frame(scen, pid),
                                                  title=f"{name}: demand vs supply under the scenario"),
@@ -748,7 +783,8 @@ def lab(ctx) -> None:
             st.altair_chart(charts.delta_histogram(d, lo, hi), width="stretch")
             st.caption(cmp_["interval_meaning"] + " It combines (1) the demand models' out-of-sample "
                        "back-test errors and (2) the assumption ranges below, using the same "
-                       f"{cmp_['n_simulations']:,} paths for the plan and the scenario (seed {cmp_['seed']}).")
+                       f"{cmp_['n_simulations']:,} paths for the plan and the scenario (seed {cmp_['seed']}). "
+                       + rv["note"])
 
     # Recommendation
     rec = _cached_recommend(ctx, sc, recommend)
@@ -1170,8 +1206,9 @@ def page_evidence() -> None:
     from decisiondesk.monitor import MonitorStore, TelegramNotifier, run_checks
     st.markdown('<div class="section-kicker">Show your work</div>', unsafe_allow_html=True)
     st.markdown("# Evidence & Data")
-    section = seg("Section", ["Data sources", "Model validation", "Reconciliation", "Assumptions",
-                              "Banking (Nessie)", "Alerts"], "seg_ev_section", "Data sources")
+    section = seg("Section", ["Data sources", "Model validation", "Uncertainty calibration",
+                              "Reconciliation", "Assumptions", "Banking (Nessie)", "Alerts"],
+                  "seg_ev_section", "Data sources")
     if section == "Data sources":
         st.table(pd.DataFrame([
             {"source": "Business records (Lone Star Taqueria / Maple Street Hardware)", "origin": "SYNTHETIC",
@@ -1204,6 +1241,8 @@ def page_evidence() -> None:
             st.dataframe(pd.DataFrame([{"product": views.NAMES[p], **b} for p, b in ctx.boards.items()])
                          .drop(columns=["models_compared"]).round(3), hide_index=True, width="stretch")
         st.caption("Scores are on SYNTHETIC data: they test the software, not real-world accuracy.")
+    elif section == "Uncertainty calibration":
+        calibration_section()
     elif section == "Reconciliation":
         ctx = product_ctx()
         if ctx is None:
@@ -1274,6 +1313,60 @@ def page_evidence() -> None:
             st.warning(f"**{al.title}** ({al.created_at}, {al.category}) — {al.message}")
         st.caption(f"Last check: {store.last_run or 'never'}. Duplicate alerts are suppressed. "
                    "Alerts never execute business actions.")
+
+
+def calibration_section() -> None:
+    from decisiondesk.calibration import (
+        METHODS,
+        cash_validation,
+        chronological_windows,
+        evaluate,
+        lab_errors,
+    )
+    st.markdown("#### Do the 80% Monte Carlo ranges hold out of sample?")
+    st.caption("Each past forecast window is judged only by a range built from EARLIER windows "
+               "(chronological, expanding). Daily = share of single days inside their daily range; "
+               "total = share of windows whose 7/14/28-day total fell inside the range for totals. "
+               "Old = Milestone 5 weekly blocks; new = whole historical windows (current).")
+    key = ("calib", s.dataset, MODELS)
+    if st.session_state.get("calib_key") != key:
+        targets = {t: chronological_windows(s.board(t))[0] for t in ("revenue", "net_cash_flow")}
+        ctx = product_ctx()
+        if ctx is not None:
+            le = lab_errors(ctx)
+            targets["Scenario Lab revenue (tracked)"] = le["lab_revenue_tracked"]
+            targets["Scenario Lab profit (tracked − fixed)"] = le["lab_profit_tracked_minus_fixed"]
+            for p_, e in le["products"].items():
+                targets[f"demand: {views.NAMES[p_]}"] = e
+        rows = []
+        for t, e in targets.items():
+            r = evaluate(e, methods={"old: weekly blocks": METHODS["weekly_blocks"],
+                                     "new: whole windows": METHODS["whole_window"]}, n=2000)
+            for m, per_h in r["methods"].items():
+                row = {"quantity": t, "method": m}
+                for h, v in per_h.items():
+                    row[f"{h}-day totals inside"] = f"{v['total_hits']}/{v['windows']}"
+                    row[f"{h}-day range width"] = round(v["mean_total_width"])
+                row["daily coverage"] = f"{per_h[28]['daily_coverage']:.0%}"
+                rows.append(row)
+        cash = None
+        try:
+            cash = {m: cash_validation(s.history, s.board("net_cash_flow"), method=m) for m in ("weekly_blocks", "whole_window")}
+        except ValueError:
+            pass
+        st.session_state["calib"] = (rows, cash)
+        st.session_state["calib_key"] = key
+    rows, cash = st.session_state["calib"]
+    st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+    if cash:
+        st.markdown(f"**Cash flow:** lowest point of cumulative cash flow inside its 80% range: old "
+                    f"{cash['weekly_blocks']['running_min_hits']}/{cash['weekly_blocks']['windows']}, new "
+                    f"{cash['whole_window']['running_min_hits']}/{cash['whole_window']['windows']}. Cash-shortfall "
+                    "*probabilities* are NOT validated (no shortfalls in the history to check against).")
+    st.warning("Small samples: about 23 evaluated windows per row, so a coverage estimate is uncertain "
+               "by roughly ±15 points. New 28-day ranges are conservative (early backtest windows had "
+               "larger errors). Synthetic data: this checks the method, not real-world calibration. "
+               "Details: docs/MILESTONE_5_1_CALIBRATION.md.")
 
 
 {"Overview": page_overview, "Revenue & Operations": page_revenue_ops, "Scenario Lab": page_scenario_lab,

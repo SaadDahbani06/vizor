@@ -70,8 +70,9 @@ def _evidence(history: pd.DataFrame, bundle: ForecastBundle, ctx: OrganizationCo
         "assumptions": assumptions,
         "economic_context": econ,
         "simulation": {"n": draws_n, "seed": seed, "method": (
-            "7-day block bootstrap of the selected models' out-of-sample residual paths; "
-            "fold indices shared across targets; common random numbers across actions")},
+            "whole-window bootstrap: each path replays one historical out-of-sample 28-day "
+            "forecast-error window of the selected models (window shared across targets); "
+            "common random numbers across actions")},
         "constraints": [asdict(c) for c in constraints],
         "horizon_days": bundle.horizon,
         "starting_cash": None if ctx.starting_cash is None else asdict(ctx.starting_cash),

@@ -47,14 +47,18 @@ MIN_CALIBRATION_WINDOWS = 20
 
 
 def _block_bootstrap(residuals: np.ndarray, n: int, rng: np.random.Generator,
-                     block: int = 7) -> np.ndarray:
-    """Sample error paths by forecast-week blocks drawn from out-of-sample backtest folds.
+                     block: int | None = None) -> np.ndarray:
+    """Sample error paths from out-of-sample backtest windows.
 
-    Each 7-day block (h=1..7, 8..14, ...) is copied whole from a random fold, which keeps
-    within-week autocorrelation and horizon-dependent error size. Errors are NOT demeaned, so
-    any systematic historical bias of the model is carried into the simulation.
+    ``block=None`` (default, Milestone 5.1): each path is ONE whole historical window, which keeps
+    the correlation of errors across weeks (multi-week totals and the running cash minimum depend
+    on it). ``block=7`` is the Milestone 5 method (each forecast week from a random window), kept
+    for comparisons. Errors are NOT demeaned, so any systematic historical bias of the model is
+    carried into the simulation.
     """
     folds, horizon = residuals.shape
+    if block is None or block >= horizon:
+        return residuals[rng.integers(0, folds, size=n)].copy()
     out = np.empty((n, horizon))
     for start in range(0, horizon, block):
         stop = min(start + block, horizon)
@@ -64,13 +68,14 @@ def _block_bootstrap(residuals: np.ndarray, n: int, rng: np.random.Generator,
 
 
 def simulate_cash_paths(point_net_cash: np.ndarray, residuals: np.ndarray, *,
-                        starting_cash: float, n: int = 4000, seed: int = 42) -> np.ndarray:
+                        starting_cash: float, n: int = 4000, seed: int = 42,
+                        block: int | None = None) -> np.ndarray:
     if n < 100 or not np.isfinite(starting_cash):
         raise ValueError("n >= 100 and finite starting cash are required")
     if residuals.ndim != 2 or residuals.shape[1] != len(point_net_cash):
         raise ValueError("residuals must be folds x horizon, matching the forecast length")
     rng = np.random.default_rng(seed)
-    errors = _block_bootstrap(residuals, n, rng)
+    errors = _block_bootstrap(residuals, n, rng, block)
     return starting_cash + np.cumsum(point_net_cash[None, :] + errors, axis=1)
 
 
@@ -118,7 +123,7 @@ def backtested_cash_risk(point_net_cash: np.ndarray, val_residuals: np.ndarray,
         "error_paths_from_folds": int(residuals.shape[0]),
         "mean_historical_error_per_day": float(residuals.mean()),
         "holdout_calibration_check": check,
-        "label": ("Frequency across simulations of backtest-error paths (7-day block bootstrap). "
-                  "It is a calibrated probability only if the holdout check is assessable and "
-                  "passes."),
+        "label": ("Frequency across simulations that each replay one whole historical 28-day "
+                  "forecast-error window. It is a calibrated probability only if the holdout check "
+                  "is assessable and passes."),
     }

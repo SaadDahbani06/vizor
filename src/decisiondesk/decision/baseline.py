@@ -2,9 +2,19 @@
 
 Each target's baseline is ``leaderboard.forecast_selected`` (the validation-selected model refit
 on all history). Uncertainty comes from that model's out-of-sample backtest residual paths
-(validation + holdout folds). All targets share fold indices, so the simulation keeps the
-historical co-movement of, e.g., revenue and variable costs. All actions share the same draws
-(common random numbers), so differences between actions are not polluted by sampling noise.
+(validation + holdout windows, in time order).
+
+Sampling (Milestone 5.1): each simulated path takes the residuals of ONE whole historical window
+(``block=None``). Forecast errors are correlated across all weeks of a window (a forecast is often
+off by a level for the whole month), so drawing each week from a different window (the
+Milestone 5 method, ``block=7``) made multi-week totals too narrow. Validation:
+``decisiondesk.calibration`` and docs/MILESTONE_5_1_CALIBRATION.md. Shorter horizons use the
+first days of the same window.
+
+All targets share the window index of a path, so the simulation keeps the historical
+co-movement of, e.g., revenue and variable costs, or the five products. All actions share the
+same draws (common random numbers), so differences between actions are not polluted by
+sampling noise.
 """
 from __future__ import annotations
 
@@ -18,7 +28,8 @@ from ..leaderboard import EvaluationConfig, Leaderboard, build_leaderboard, fore
 
 NONNEGATIVE = {"revenue", "variable_costs", "fixed_costs", "units_sold", "purchase_dollars",
                "online_orders_per_store", "instore_orders_per_store"}
-BLOCK = 7
+WHOLE_WINDOW = None   # default: one historical window per simulated path
+WEEKLY_BLOCK = 7      # Milestone 5 method, kept for comparisons and tests
 
 
 @dataclass
@@ -58,13 +69,16 @@ class ForecastBundle:
 
     def simulate(self, draws: SimulationDraws) -> dict[str, np.ndarray]:
         """Baseline (no-action) sample paths, sims x H, for every target."""
-        if draws.fold_idx.shape[1] != -(-self.horizon // BLOCK):
-            raise ValueError("draws were made for a different horizon")
+        block = self.horizon if draws.block is None else draws.block
+        if draws.fold_idx.shape[1] != -(-self.horizon // block):
+            raise ValueError("draws were made for a different horizon or block length")
+        if draws.fold_idx.max() >= self.n_folds:
+            raise ValueError("draws reference more backtest windows than this bundle has")
         out = {}
         for name, tf in self.targets.items():
             paths = np.empty((draws.n, self.horizon))
-            for b, start in enumerate(range(0, self.horizon, BLOCK)):
-                stop = min(start + BLOCK, self.horizon)
+            for b, start in enumerate(range(0, self.horizon, block)):
+                stop = min(start + block, self.horizon)
                 paths[:, start:stop] = tf.point[start:stop] + tf.residuals[draws.fold_idx[:, b],
                                                                             start:stop]
             out[name] = np.maximum(paths, 0.0) if name in NONNEGATIVE else paths
@@ -73,24 +87,31 @@ class ForecastBundle:
 
 @dataclass(frozen=True)
 class SimulationDraws:
-    """Common random numbers: fold indices per 7-day block and a uniform stream per assumption
-    name. The stream for a name depends only on (seed, name), never on evaluation order."""
+    """Common random numbers: the historical window index of each path (per block when
+    ``block`` is set) and a uniform stream per assumption name. The stream for a name depends
+    only on (seed, name), never on evaluation order."""
 
     n: int
     seed: int
     fold_idx: np.ndarray
+    block: int | None = WHOLE_WINDOW
 
     def uniform(self, name: str) -> np.ndarray:
         rng = np.random.default_rng([self.seed, zlib.crc32(name.encode())])
         return rng.random(self.n)
 
 
-def make_draws(bundle: ForecastBundle, n: int = 4000, seed: int = 20261114) -> SimulationDraws:
+def make_draws(bundle: ForecastBundle, n: int = 4000, seed: int = 20261114,
+               block: int | None = WHOLE_WINDOW) -> SimulationDraws:
+    """``block=None``: each path uses one whole historical window (default). ``block=7``: the
+    Milestone 5 weekly-block method (for comparisons)."""
     if n < 100:
         raise ValueError("use at least 100 simulations")
+    if block is not None and block < 1:
+        raise ValueError("block must be a positive number of days or None (whole window)")
     rng = np.random.default_rng(seed)
-    blocks = -(-bundle.horizon // BLOCK)
-    return SimulationDraws(n, seed, rng.integers(0, bundle.n_folds, size=(n, blocks)))
+    blocks = 1 if block is None else -(-bundle.horizon // block)
+    return SimulationDraws(n, seed, rng.integers(0, bundle.n_folds, size=(n, blocks)), block)
 
 
 def build_forecast_bundle(history: pd.DataFrame, targets: tuple[str, ...], *, dataset: str,

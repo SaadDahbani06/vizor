@@ -458,13 +458,20 @@ def compare(ctx: ProductContext, scen: SimResult, base: SimResult) -> dict:
         "policy_violations": ([(f"price increase {sc.price_change_pct:g}% exceeds the owner's approved "
                                f"limit of {ctx.max_price_increase * 100:g}%")] if over else []),
         "n_simulations": ctx.n_sims, "seed": SEED,
-        "interval_meaning": ("90% simulation range: 5th to 95th percentile across simulated futures "
-                             "that combine back-tested forecast errors with the assumption ranges. "
-                             "It is not a guarantee and not a calibrated real-world interval."),
+        "interval_meaning": ("90% simulation range: 5th to 95th percentile across simulated futures. "
+                             "Each future replays one whole historical out-of-sample forecast-error "
+                             "window and draws the assumptions from their ranges. It is not a "
+                             "guarantee and not a calibrated real-world interval."),
+        "range_validation": _lab_validation(ctx, sc.horizon_days),
         "assumptions": scen.assumptions,
         "data_label": ctx.data_label,
         "effect_type": "counterfactual simulation under stated assumptions; NOT an estimated causal effect",
     }
+
+
+def _lab_validation(ctx: ProductContext, horizon: int) -> dict:
+    from ..calibration import lab_validation
+    return lab_validation(ctx, horizon)
 
 
 def sensitivity(ctx: ProductContext, sc: ProductScenario) -> list[dict]:

@@ -299,16 +299,28 @@ def forecast_business(s: BusinessSession, target: str = "revenue") -> dict:
         "selected_model": b.selected, "selection_reason": b.selection_reason,
         "point_total": _r(tf.point.sum(), 0), "interval_80_total": [_r(np.quantile(total, .1), 0),
                                                                    _r(np.quantile(total, .9), 0)],
+        "interval_method": "whole-window Monte Carlo: each simulated path replays one historical "
+                           "out-of-sample 28-day forecast-error window",
+        "interval_80_total_validation": _validation_dict(b),
         "weekly_point_totals": [_r(w, 0) for w in weekly],
         "validation": {"wape": _r(sel.validation["wape"], 3), "mae": _r(sel.validation["mae"], 1),
                        "period": b.meta["validation_period"], "folds": b.meta["n_validation_folds"]},
         "final_test": {"wape": _r(sel.holdout["wape"], 3), "mae": _r(sel.holdout["mae"], 1),
                        "interval_80_coverage": _r(sel.holdout_interval_coverage, 2),
+                       "interval_80_coverage_meaning": "daily coverage of per-day ranges built from "
+                                                       "validation errors only (not the 28-day "
+                                                       "total range above)",
                        "period": b.meta["holdout_period"], "folds": b.meta["n_holdout_folds"]},
         "leaderboard": [{"model": m.name, "validation_wape": _r(m.validation["wape"], 3),
                          "test_wape": _r(m.holdout["wape"], 3)} for m in b.models if m.available],
         "caveat": f"Accuracy measured on {s.data_label} data only; not validated on a real "
                   "small business. 28-day horizon is the only horizon evaluated."})
+
+
+def _validation_dict(board) -> dict:
+    from ..calibration import board_validation
+    v = board_validation(board, 28).as_dict()
+    return {k: (_r(x, 3) if isinstance(x, float) else x) for k, x in v.items()}
 
 
 def _decision_payload(run: DecisionRun, scenario: dict) -> dict:
@@ -467,6 +479,11 @@ def assess_cash_risk(s: BusinessSession, starting_cash: float | None = None) -> 
     r = backtested_cash_risk(bundle.targets["net_cash_flow"].point, b.val_residuals,
                              b.holdout_actual - b.holdout_pred, b.holdout_pred, b.holdout_actual,
                              starting_cash=cash, n=4000)
+    from ..calibration import cash_validation
+    try:
+        cv = cash_validation(s.history, b)
+    except ValueError as exc:
+        cv = {"summary": f"not validated ({exc})", "assessable": False}
     return s._stamp("assess_cash_risk", {"starting_cash": starting_cash}, {
         "available": True, "starting_cash": _r(cash, 0), "starting_cash_source": src,
         "horizon_days": r["horizon_days"], "net_cash_model": b.selected,
@@ -474,6 +491,10 @@ def assess_cash_risk(s: BusinessSession, starting_cash: float | None = None) -> 
         "median_ending_cash": _r(r["median_ending_cash"], 0),
         "ending_cash_80pct_interval": [_r(x, 0) for x in r["ending_cash_80%_interval"]],
         "calibration": r["holdout_calibration_check"]["verdict"],
+        "range_validation": {k: (_r(x, 3) if isinstance(x, float) else x) for k, x in cv.items()},
+        "warning": ("The shortfall frequency is a simulation frequency, NOT a validated "
+                    "probability: it has not been checked against real shortfalls. "
+                    + cv["summary"] + "."),
         "label": r["label"] + " Accrual-basis net cash flow (operating), not bank cash timing."})
 
 
@@ -621,6 +642,9 @@ def simulate_product_scenario(s: BusinessSession, product: str | None = None,
         "assumptions": [{k: a[k] for k in ("name", "value", "low", "high", "source")}
                         for a in c["assumptions"]],
         "interval_meaning": c["interval_meaning"], "effect_type": c["effect_type"],
+        "range_check": {"revenue_total": c["range_validation"]["revenue_total"]["summary"],
+                        "profit_total": c["range_validation"]["profit_total"]["summary"],
+                        "not_validated": c["range_validation"]["note"]},
         "n_simulations": c["n_simulations"], "requires_human_approval": True}
     return s._stamp("simulate_product_scenario", inputs, out)
 

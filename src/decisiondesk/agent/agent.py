@@ -501,11 +501,12 @@ class OfflinePlanner:
     @staticmethod
     def _forecast_text(out):
         lo, hi = out["interval_80_total"]
+        v = out.get("interval_80_total_validation") or {}
         return (f"Offline analyst. {out['target']} forecast {out['forecast_start']} to "
-                f"{out['forecast_end']}: {out['point_total']:,.0f} (80% interval {lo:,.0f} to "
-                f"{hi:,.0f}) from {out['selected_model']}. Measured accuracy: validation WAPE "
-                f"{out['validation']['wape']}, final-test WAPE {out['final_test']['wape']}, "
-                f"final-test interval coverage {out['final_test']['interval_80_coverage']}. "
+                f"{out['forecast_end']}: {out['point_total']:,.0f} (80% range for the total "
+                f"{lo:,.0f} to {hi:,.0f}) from {out['selected_model']}. Measured accuracy: "
+                f"validation WAPE {out['validation']['wape']}, final-test WAPE "
+                f"{out['final_test']['wape']}. Range check: {v.get('summary', 'not validated')}. "
                 + out["caveat"])
 
     @staticmethod
@@ -517,7 +518,7 @@ class OfflinePlanner:
                 f"({out['starting_cash_source']}). Simulated {out['horizon_days']}-day shortfall "
                 f"frequency {out['simulated_shortfall_frequency']}; median ending cash "
                 f"{_money(out['median_ending_cash'])} (80% range {_money(lo)} to {_money(hi)}). "
-                f"{out['calibration']}.")
+                f"{out['calibration']}. {out['warning']}")
 
     @staticmethod
     def _overview_text(out):

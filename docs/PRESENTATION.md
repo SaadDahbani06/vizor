@@ -52,7 +52,7 @@ shortage in one hits all of them."
 
 "Let's raise taco prices." *Drag the price to +8%.* "It's flagged: the owner allows at most 5%,
 so we show it but never recommend it." *Set it to +5%.* "Demand falls, so revenue does not rise
-5%. Some customers switch to burritos, and profit rises by about $400 over 28 days. The range
+5%. Some customers switch to burritos, and profit rises by about $410 over 28 days. The range
 comes from 1,000 simulated futures, and the price sensitivity is an assumption we state and
 stress-test." *Drag ingredient orders to −40%.* "Now demand exceeds what the stock allows, stock-out risk
 jumps, profit falls. Cash and profit move differently because ingredients are paid a week later.
@@ -79,5 +79,8 @@ real restaurant is the next step."
 ## Not to say
 
 - Do not call any accuracy "real-world": the forecasting scores are on synthetic history.
+- Do not call the ranges "calibrated probabilities". Say: "we checked the 80% ranges on past
+  forecast windows they had never seen: 22 of 23 past 28-day revenue totals fell inside, so they
+  are on the cautious side." Stock-out and cash-shortfall percentages are simulation frequencies.
 - Do not call the effects causal: price, substitution and marketing effects are assumptions.
 - Do not say "in under a minute" for text replies.
