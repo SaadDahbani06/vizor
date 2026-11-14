@@ -262,6 +262,17 @@ class OfflinePlanner:
         money = re.search(r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*(k)?", q, re.IGNORECASE)
         amount = None if not money else float(money.group(1).replace(",", "")) * (1000 if money.group(2) else 1)
         try:
+            if getattr(self.s, "has_products", False) and re.search(
+                    r"competitor|nearby|local market|other restaurants|compare.*(price|menu)|"
+                    r"market price|what do others charge", ql):
+                prod = re.search(self.PRODUCT_RE, ql)
+                out = self._call(calls, "get_local_market_prices",
+                                 {"product": (prod.group(1) + "s") if prod else None})
+                return AgentReply(self._market_text(out), "offline", calls)
+            if re.search(r"brief|yesterday|what needs (my )?attention|today", ql):
+                out = self._call(calls, "get_daily_briefing", {})
+                return AgentReply("Offline analyst (rule-based, no language model).\n" + out["text"],
+                                  "offline", calls)
             routed = self._product_route(q, ql, pct, calls)
             if routed is not None:
                 return routed
@@ -369,6 +380,27 @@ class OfflinePlanner:
             out = self._call(calls, "get_product_performance", {"period_days": 28})
             return AgentReply(self._product_perf_text(out), "offline", calls)
         return None
+
+    @staticmethod
+    def _market_text(out) -> str:
+        if not out.get("available"):
+            return "Offline analyst. " + out.get("reason", "")
+        head = (f"Offline analyst (rule-based, no language model). Local menu prices, {out['market']} "
+                f"(public official menus, verified and dated). Your {out['our_serving']}: "
+                f"${out['our_price']:.2f}.")
+        if not out["sufficient"]:
+            body = (f"Only {out['peer_count']} verified comparable(s), so there is no reliable local "
+                    "benchmark for this item yet.")
+        else:
+            body = (f"{out['peer_count']} verified comparables range from ${out['peer_min']:.2f} to "
+                    f"${out['peer_max']:.2f} (median ${out['peer_median']:.2f}); your price is "
+                    f"{out['position']}.")
+        lines = [head, body]
+        for c in out["comparables"]:
+            lines.append(f"  {c['restaurant']} ({c['type']}): {c['item']} ${c['listed_price']:.2f} "
+                         f"= ${c['price_for_our_serving']:.2f} for your serving; verified {c['verified_on']}.")
+        lines += out["warnings"] + [out["not_a_recommendation"]]
+        return "\n".join(lines)
 
     @staticmethod
     def _scn(pid, **kw) -> dict:

@@ -1,0 +1,14 @@
+restaurant,ownership,concept,address_or_area,price_status,used_in_comparisons,source_checked,checked_date,notes
+Taco Joint,independent (2 Austin locations),counter-service taqueria,2809 San Jacinto Blvd 78705; 134 E Riverside Dr,verified (official menu),yes,https://austintacojoint.com/menu,2026-11-14,Priced menu on official site
+El Chilito,independent (2 Austin locations),counter-service taqueria,2219 Manor Rd 78722; 4501 Manchaca Rd 78745,verified (official menu),yes,https://www.elchilito.com/menu,2026-11-14,Priced menu on official site
+Juan in a Million,independent,Tex-Mex restaurant,2300 E Cesar Chavez St,verified (official menu),yes,https://www.juaninamillion.com/menu,2026-11-14,Priced menu on official site
+Tamale House East,independent,Tex-Mex restaurant,1707 E 6th St 78702,verified (official menu),yes,https://www.tamalehouseeast.com/menu,2026-11-14,Priced menu on official site
+Guero's Taco Bar,independent,Tex-Mex restaurant,address not on fetched page,verified (official menu),yes,https://www.gueros.com/menu,2026-11-14,Priced menu on official site
+Matt's El Rancho,independent,Tex-Mex restaurant (full service),2613 S Lamar 78704,verified (official menu),yes,https://www.mattselrancho.com/menu,2026-11-14,Priced menu on official site
+Granny's Tacos,independent,taqueria,1401 E 7th St 78702,unavailable,no,https://www.grannystacosatx.com/shop/,2026-11-14,Official menu page lists items without prices; a delivery-platform listing (order.online) shows a $15.12 quesadilla but delivery prices are not used
+Papalote Taco House,independent (multiple Austin locations),taqueria,S Lamar / S Congress / Research Blvd (per third-party listings),unavailable,no,web search 2026-11-14,2026-11-14,No official priced menu found; review prices are undated and not used
+Cuantos Tacos,independent,food truck taqueria,1108 E 12th St (per listings),unavailable,no,https://www.cuantostacosaustin.com/,2026-11-14,Official site content not readable by our fetcher; reviews quote ~$2 tacos but undated - not used
+Tacodeli,local chain (multi-unit),taqueria,multiple Austin locations,unavailable,no,https://www.tacodeli.com/menu and location pages,2026-11-14,Official menu and location pages show items without prices; printed menu PDF has no text layer; chain - excluded from primary peers anyway
+Torchy's Tacos,national chain,fast-casual tacos,multiple,unavailable,no,https://torchystacos.com/our-menu,2026-11-14,Official menu shows items without prices; chain - excluded from primary peers
+Vaquero Taquero,independent,taqueria,North University (per listings),unavailable,no,toasttab.com ordering page,2026-11-14,Prices only on Toast online ordering which returned HTTP 403 to automated access; not collected
+Changos Taqueria,independent,taqueria,3023 Guadalupe St (per listing),third-party only (undated),no,https://places.singleplatform.com/changos-taqueria/menu (search result),2026-11-14,Third-party listing without a date; not used

@@ -53,7 +53,7 @@ h1 {{ font-weight: 700 !important; }}
    Streamlit 1.67 markup: [data-testid=stRadioGroup] > div > label[data-testid=stRadioOption][data-selected] */
 .st-key-nav [data-testid="stRadioGroup"], [class*="st-key-seg_"] [data-testid="stRadioGroup"] {{ gap: 0 !important; flex-wrap: wrap; }}
 .st-key-nav [data-testid="stRadioOption"] {{ border: 2px solid var(--ink); margin: 0 -2px -2px 0 !important;
-    padding: 9px 18px !important; background: var(--card); cursor: pointer; }}
+    padding: 8px 13px !important; background: var(--card); cursor: pointer; }}
 .st-key-nav [data-testid="stRadioOption"] > div > div:first-child,
 [class*="st-key-seg_"] [data-testid="stRadioOption"] > div > div:first-child {{ display: none !important; }}
 .st-key-nav [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--ink); }}

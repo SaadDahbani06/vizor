@@ -660,6 +660,44 @@ def explain_profit_change(s: BusinessSession, period_days: int = 28) -> dict:
     return s._stamp("explain_profit_change", {"period_days": period_days}, out)
 
 
+def get_local_market_prices(s: BusinessSession, product: str | None = None) -> dict:
+    """Our menu price vs verified comparable local menus (public data, kept separate)."""
+    from .. import market
+    inputs = {"product": product}
+    try:
+        ctx = s.product_context()
+    except ProductLayerUnavailable as exc:
+        return _product_unavailable(s, "get_local_market_prices", inputs, exc)
+    from ..products import PRODUCT_IDS
+    pid = (product or "tacos").strip().lower()
+    pid = {"taco": "tacos", "burrito": "burritos", "quesadilla": "quesadillas", "nacho": "nachos",
+           "drink": "drinks"}.get(pid, pid)
+    if pid not in PRODUCT_IDS:
+        raise ValueError(f"product must be one of {PRODUCT_IDS}")
+    c = market.compare(pid, float(ctx.prices[PRODUCT_IDS.index(pid)]))
+    out = {k: c[k] for k in ("product_id", "market", "our_serving", "our_price", "peer_count",
+                             "sufficient", "warnings", "not_a_recommendation", "data_origin")}
+    for k in ("peer_min", "peer_median", "peer_max", "difference_vs_median",
+              "difference_vs_median_pct", "position", "peers_cheaper", "peers_more_expensive"):
+        if k in c:
+            out[k] = c[k]
+    out["comparables"] = [{"restaurant": x["restaurant"], "type": x["concept"], "item": x["item"],
+                           "listed_price": x["listed_price"],
+                           "price_for_our_serving": x["comparable_price"], "match": x["match_level"],
+                           "verified_on": x["verified_date"], "source": x["source_url"]}
+                          for x in c["comparables"]]
+    out["excluded_count"] = len(c["excluded"])
+    out["available"] = True
+    return s._stamp("get_local_market_prices", inputs, out)
+
+
+def get_daily_briefing(s: BusinessSession) -> dict:
+    """Yesterday vs a typical same weekday, what needs attention, and one decision to consider."""
+    from ..briefing import daily_briefing
+    b = daily_briefing(s)
+    return s._stamp("get_daily_briefing", {}, {k: v for k, v in b.items()})
+
+
 def create_alert_rule(s: BusinessSession, kind: str, series_id: str | None = None,
                       threshold: float | None = None) -> dict:
     from ..monitor import MonitorStore
@@ -709,6 +747,8 @@ TOOL_FUNCS = {
     "get_product_performance": get_product_performance,
     "simulate_product_scenario": simulate_product_scenario,
     "explain_profit_change": explain_profit_change,
+    "get_local_market_prices": get_local_market_prices,
+    "get_daily_briefing": get_daily_briefing,
 }
 
 
@@ -843,6 +883,21 @@ TOOL_SCHEMAS = [
                     "change (an accounting decomposition, not a causal claim).",
      "input_schema": {"type": "object", "additionalProperties": False, "required": ["period_days"],
                       "properties": {"period_days": {"type": "integer", "enum": [28, 90, 365]}}}},
+    {"name": "get_local_market_prices",
+     "description": "Compare one of the owner's menu prices with verified, comparable menu prices "
+                    "of nearby independent restaurants (public official menus, dated and "
+                    "sourced; servings normalized, e.g. 3 single tacos = a plate of three). Returns "
+                    "the peer range, median, sample size and warnings. It does NOT say how customers "
+                    "would react and is never by itself a reason to change a price.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": ["product"],
+                      "properties": {"product": _nullable("string", "tacos, burritos, quesadillas, "
+                                                                    "nachos or drinks.")}}},
+    {"name": "get_daily_briefing",
+     "description": "The owner's daily briefing: yesterday's revenue, profit and guests vs a typical "
+                    "same weekday, products that fell more than traffic, stock to watch, bills due "
+                    "in 7 days, and one decision to consider with impact, risks and what to verify.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": [],
+                      "properties": {}}},
 ]
 
 

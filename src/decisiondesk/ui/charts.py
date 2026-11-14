@@ -268,3 +268,30 @@ def ingredient_history(df: pd.DataFrame, height: int = 260):
                  alt.Tooltip("days_of_supply:Q", format=".1f", title="Days of supply"),
                  alt.Tooltip("closing:Q", format=",.1f", title="On hand")])
     return finish(ch, height)
+
+
+def price_position(df: pd.DataFrame, our_price: float, median: float | None, *, label: str,
+                   height: int = 240):
+    """Dot plot of verified comparable prices (for our serving) with our price and the peer median.
+    Columns: restaurant, comparable_price, concept, verified_date, item, listed_price."""
+    order = df.sort_values("comparable_price")["restaurant"].tolist()
+    base = alt.Chart(df).encode(y=alt.Y("restaurant:N", sort=order, title=None,
+                                        axis=alt.Axis(labelFontWeight=600, labelColor=INK, labelLimit=200)))
+    dots = base.mark_circle(size=170, opacity=1, stroke=CARD, strokeWidth=1.5).encode(
+        x=alt.X("comparable_price:Q", title=f"price for {label}", axis=alt.Axis(format="$.2f"),
+                scale=alt.Scale(zero=False, padding=20)),
+        color=alt.Color("concept:N", legend=alt.Legend(title=None),
+                        scale=alt.Scale(range=[COBALT, ORANGE, "#0F8F7A", "#8B3FC7"])),
+        tooltip=[alt.Tooltip("restaurant:N"), alt.Tooltip("item:N"),
+                 alt.Tooltip("listed_price:Q", format="$.2f", title="Listed price"),
+                 alt.Tooltip("comparable_price:Q", format="$.2f", title="For your serving"),
+                 alt.Tooltip("match_level:N", title="Match"),
+                 alt.Tooltip("verified_date:N", title="Verified")])
+    marks = [{"x": our_price, "what": "Your price"}] + ([{"x": median, "what": "Peer median"}] if median else [])
+    rules = alt.Chart(pd.DataFrame(marks)).mark_rule(strokeWidth=2.5).encode(
+        x="x:Q", color=alt.Color("what:N", scale=alt.Scale(domain=["Your price", "Peer median"],
+                                                         range=[INK, BASELINE]), legend=alt.Legend(title=None)),
+        strokeDash=alt.StrokeDash("what:N", scale=alt.Scale(domain=["Your price", "Peer median"],
+                                                             range=[[1, 0], [6, 4]]), legend=None),
+        tooltip=[alt.Tooltip("what:N"), alt.Tooltip("x:Q", format="$.2f", title="Price")])
+    return finish(alt.layer(dots, rules).resolve_scale(color="independent"), height)

@@ -33,8 +33,8 @@ from decisiondesk.ui import theme as T
 load_dotenv(".env")
 FAST = os.getenv("MSRD_FAST") == "1"
 MODELS = ("seasonal_naive", "weekday_mean_12w", "historical_mean_28d", "ridge") if FAST else None
-PAGES = ["Overview", "Revenue & Operations", "Scenario Lab", "AI Analyst", "Economy", "Messaging",
-         "Evidence & Data"]
+PAGES = ["Overview", "Revenue & Operations", "Local Market", "Scenario Lab", "AI Analyst", "Economy",
+         "Messaging", "Evidence & Data"]
 RO_SECTIONS = ["Revenue", "Products", "Inventory", "Profit & costs", "Cash & obligations", "Forecasts"]
 
 st.set_page_config(page_title="Main Street Risk Desk", layout="wide", page_icon="🏪")
@@ -174,6 +174,7 @@ def page_overview() -> None:
     k = dash.kpis(s, period)
     st.caption(f"{k['period_label']} compared with {k['comparison_label']}. "
                "Click a card's link for the detailed view.")
+    briefing_panel()
     r1 = st.columns(3)
     r2 = st.columns(3)
     rev, prof, exp = k["revenue"], k["net_profit"], k["expenses"]
@@ -307,6 +308,58 @@ def page_overview() -> None:
             st.caption("Ranked by the existing restaurant decision engine under the current scenario. "
                        "Action effects are assumptions, not proven causal effects; your approval is required.")
             st.button("Test it in the Scenario Lab →", key="go_lab", on_click=go, args=("Scenario Lab",))
+
+
+def _briefing() -> dict:
+    from datetime import date
+
+    from decisiondesk.briefing import daily_briefing
+    key = ("brief", s.dataset, repr(asdict(s.state)))
+    if st.session_state.get("brief_key") != key:
+        st.session_state["brief"] = daily_briefing(s, market_as_of=date.today())
+        st.session_state["brief_key"] = key
+    return st.session_state["brief"]
+
+
+def briefing_panel() -> None:
+    b = _briefing()
+    y = b["yesterday"]
+    with st.container(key="card_briefing"):
+        st.markdown(f'<div class="insight-title">Today\'s briefing · {T.esc(b["weekday"])} {T.esc(b["date"])} '
+                    f'{T.origin("observed")}</div>', unsafe_allow_html=True)
+        guests = (f" · {T.esc(b['volume_label'].lower())} {y['guests']} (typical {y['guests_typical']})"
+                  if y.get("guests") is not None else "")
+        chg = "n/a" if y["revenue_change_pct"] is None else f"{y['revenue_change_pct']:+.0f}%"
+        st.markdown(f'<div class="insight-text">Yesterday: revenue {T.money(y["revenue"])} '
+                    f'({chg} vs a typical {T.esc(b["weekday"])} of '
+                    f'{T.money(y["revenue_typical"])}) · operating profit {T.money(y["operating_profit"])}{guests}</div>',
+                    unsafe_allow_html=True)
+        c1, c2 = st.columns([3, 2])
+        with c1:
+            st.markdown("**Needs attention today**")
+            st.markdown("\n".join(f"- {a}" for a in b["attention"]) or "- Nothing urgent flagged.")
+        a = b.get("action")
+        with c2:
+            if a:
+                st.markdown(f"**Decision to consider:** {a['action']} " + T.origin("simulated"),
+                            unsafe_allow_html=True)
+                if a.get("impact"):
+                    i = a["impact"]
+                    st.markdown(f"Profit {T.signed_money(i['profit_change'])} over 28 days (90% range "
+                                f"{T.signed_money(i['range_90'][0])} to {T.signed_money(i['range_90'][1])}), "
+                                f"better in {i['probability_better_pct']}% of simulated futures.")
+                with st.expander("Action checklist: risks, what to verify, approval"):
+                    st.markdown("**Risks**\n" + "\n".join(f"- {r}" for r in a["risks"]))
+                    st.markdown("**Verify first**\n" + "\n".join(f"- {v}" for v in a["verify"]))
+                    st.markdown("**Approval:** required. Nothing is changed automatically.")
+                if a.get("scenario"):
+                    sc = a["scenario"]
+                    st.button("Open in the Scenario Lab →", key="go_brief_lab", on_click=go,
+                              args=("Scenario Lab",),
+                              kwargs={"sl_product": a["product"], "sl_price": sc["price_change_pct"],
+                                      "sl_price_num": sc["price_change_pct"],
+                                      "sl_supply": sc["supply_change_pct"], "lab_link_applied": True})
+        st.caption(b["note"])
 
 
 def _bounds(period):
@@ -603,6 +656,104 @@ def product_detail(ctx, name: str, table: pd.DataFrame) -> None:
                f"7-day totals and {v28.total_hits}/{v28.windows} past 28-day totals inside their 80% "
                f"range; daily coverage {v28.daily_coverage:.0%}. Synthetic data: this tests the "
                "software, not real-world accuracy.")
+
+
+# ================================================================================ LOCAL MARKET
+def page_local_market() -> None:
+    from datetime import date
+
+    from decisiondesk import market as mk
+    st.markdown('<div class="section-kicker">How are my prices positioned locally?</div>', unsafe_allow_html=True)
+    st.markdown("# Local Market " + T.pill("Public menus · verified & dated", "real"), unsafe_allow_html=True)
+    ctx = product_ctx()
+    if ctx is None:
+        return empty_state("Local price comparison needs your product prices.")
+    if "market" not in st.session_state:
+        st.session_state["market"] = mk.load_market()
+    m = st.session_state["market"]
+    today = date.today()
+    fr = mk.freshness(m, today)
+    st.markdown(f'<div class="callout">{T.esc(mk.NOT_A_RECOMMENDATION)}</div>', unsafe_allow_html=True)
+    st.caption(f"{fr['restaurants_with_verified_prices']} Austin restaurants with prices read from their own "
+               f"official menus (of {fr['restaurants_researched']} researched); verified "
+               f"{fr['oldest_verification']}. Competitor data is public and kept separate from your private "
+               "records; it never feeds forecasts or profit calculations. Your restaurant's location is not "
+               "set (fictional business), so comparisons are city-wide, not by radius.")
+    if fr["stale"]:
+        st.warning(f"Market prices are {fr['oldest_age_days']} days old: re-verify before relying on them.")
+    names = list(views.NAMES.values())
+    c1, c2, c3 = st.columns([1, 2, 1])
+    name = c1.selectbox("Product", names, key="lm_product")
+    pid = next(k for k, v in views.NAMES.items() if v == name)
+    concepts = sorted(m.prices["concept"].unique())
+    types = c2.multiselect("Restaurant types", concepts, default=concepts, key="lm_types")
+    similar = c3.toggle("Include similar servings", key="lm_similar",
+                        help="Also count items whose portion or tier may differ (e.g. a smaller taquito).")
+    from decisiondesk.products import PRODUCT_IDS
+    our = float(ctx.prices[PRODUCT_IDS.index(pid)])
+    c = mk.compare(pid, our, market=m, concepts=types or None, include_similar=similar, as_of=today)
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Your price", f"${our:.2f}", c["our_serving"], delta_color="off", delta_arrow="off")
+    if c["peer_count"]:
+        k2.metric("Peer median", f"${c['peer_median']:.2f}", f"{c['difference_vs_median_pct']:+.1f}% yours vs median",
+                  delta_color="off", delta_arrow="off")
+        k3.metric("Peer range", f"${c['peer_min']:.0f}–{c['peer_max']:.0f}",
+                  f"${c['peer_min']:.2f} to ${c['peer_max']:.2f}", delta_color="off", delta_arrow="off")
+    else:
+        k2.metric("Peer median", "n/a")
+        k3.metric("Peer range", "n/a")
+    k4.metric("Verified comparables", str(c["peer_count"]),
+              c.get("position", "") if c["sufficient"] else "not enough for a benchmark",
+              delta_color="off", delta_arrow="off")
+    for w in c["warnings"]:
+        st.warning(w)
+    if c["comparables"]:
+        df = pd.DataFrame(c["comparables"])
+        with st.container(key="panel_market"):
+            st.altair_chart(charts.price_position(df, our, c.get("peer_median"), label=c["our_serving"]),
+                            width="stretch")
+            st.caption("Each dot: one restaurant's price converted to your serving (e.g. 3 × a single "
+                       "taco = a plate of three). Black line: your price; grey dashed: peer median.")
+        st.dataframe(df[["restaurant", "item", "listed_price", "comparable_price", "source_url",
+                         "verified_date", "match_level", "concept"]], hide_index=True, width="stretch",
+                     column_config={"listed_price": st.column_config.NumberColumn("Listed", format="$%.2f"),
+                                    "comparable_price": st.column_config.NumberColumn("For your serving", format="$%.2f"),
+                                    "source_url": st.column_config.LinkColumn("Source (official menu)"),
+                                    "verified_date": "Verified"})
+    if c["excluded"]:
+        with st.expander(f"Not counted ({len(c['excluded'])}): different servings, other items, filters"):
+            st.dataframe(pd.DataFrame(c["excluded"])[["restaurant", "item", "listed_price", "serving",
+                                                       "excluded_because", "source_url"]],
+                         hide_index=True, width="stretch",
+                         column_config={"source_url": st.column_config.LinkColumn("Source")})
+    st.markdown("#### Explore a price change in the Scenario Lab " + T.origin("simulated"), unsafe_allow_html=True)
+    st.caption("The Lab estimates demand, revenue, stock and profit under your price-sensitivity "
+               "assumptions. A competitor's price does not tell you your customers' reaction.")
+    b1, b2, b3 = st.columns(3)
+    options = [("Lower 5%", -5.0), ("Raise 5%", 5.0)]
+    if c["sufficient"] and abs(c["difference_vs_median_pct"]) <= 30:
+        to_med = round((c["peer_median"] / our - 1) * 100, 1)
+        options.append((f"Test the peer median ({to_med:+.1f}%)", to_med))
+    for col, (lab_, v) in zip((b1, b2, b3), options):
+        col.button(f"{lab_} →", key=f"lm_go_{lab_[:5]}", on_click=go, args=("Scenario Lab",),
+                   kwargs={"sl_product": name, "sl_price": float(v), "sl_price_num": float(v),
+                           "lab_link_applied": True})
+    st.markdown("#### All five products")
+    ov = mk.overview({p: float(ctx.prices[i]) for i, p in enumerate(PRODUCT_IDS)}, market=m,
+                     as_of=today, concepts=types or None, include_similar=similar)
+    ov.insert(0, "product", ov["product_id"].map(views.NAMES))
+    for col in ("peer_min", "peer_median", "peer_max", "vs_median_pct"):
+        ov[col] = pd.to_numeric(ov[col], errors="coerce")
+    st.dataframe(ov.drop(columns=["product_id"]), hide_index=True, width="stretch",
+                 column_config={k: st.column_config.NumberColumn(format="$%.2f")
+                                for k in ("our_price", "peer_min", "peer_median", "peer_max")})
+    with st.expander("Price monitoring and research log"):
+        st.markdown(f"- Method: {fr['method']}\n- Next re-verification due: **{fr['next_reverification_due']}**\n"
+                    "- No real-time prices: there is no reliable, permitted real-time source for "
+                    "independent restaurants' menus. Ordering platforms that block automated access are "
+                    "not scraped.")
+        if len(m.log):
+            st.dataframe(m.log, hide_index=True, width="stretch")
 
 
 # ================================================================================ SCENARIO LAB
@@ -1374,6 +1525,7 @@ def calibration_section() -> None:
                "Details: docs/MILESTONE_5_1_CALIBRATION.md.")
 
 
-{"Overview": page_overview, "Revenue & Operations": page_revenue_ops, "Scenario Lab": page_scenario_lab,
+{"Overview": page_overview, "Revenue & Operations": page_revenue_ops, "Local Market": page_local_market,
+ "Scenario Lab": page_scenario_lab,
  "AI Analyst": page_analyst, "Economy": page_economy, "Messaging": page_messaging,
  "Evidence & Data": page_evidence}[page]()
