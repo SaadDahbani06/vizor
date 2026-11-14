@@ -1,4 +1,9 @@
-"""Compare explicit assumptions; modeled effects are NOT proven causal improvements."""
+"""LEGACY (Milestone 0) helpers kept for backward-compatible tests only.
+
+They run on whatever forecast frame they are given (historically the weekday-mean baseline)
+and use a linear elasticity. The demos now use ``decisiondesk.decision`` (selected-model
+baselines, constant-elasticity demand, constraints, ranking). Do not use these for new work.
+"""
 from __future__ import annotations
 
 import pandas as pd

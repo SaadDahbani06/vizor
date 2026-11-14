@@ -1,0 +1,428 @@
+date,payee,category,amount,recurring
+2023-11-15,Equipment loan (simulated),loan,1450.0,True
+2023-11-17,Payroll,payroll,13611.07,True
+2023-11-20,Austin Energy (simulated),utilities,1829.65,True
+2023-11-20,"Supplies, repairs & services",other_operating,1924.13,True
+2023-11-27,"Supplies, repairs & services",other_operating,1684.33,True
+2023-11-28,Owner distribution,owner_draw,6000.0,False
+2023-12-01,Fictional Properties LLC,rent,6600.0,True
+2023-12-01,Payroll,payroll,13255.23,True
+2023-12-04,"Supplies, repairs & services",other_operating,1708.67,True
+2023-12-05,Marketing & software,discretionary,1050.0,True
+2023-12-11,"Supplies, repairs & services",other_operating,1513.89,True
+2023-12-15,Payroll,payroll,13642.4,True
+2023-12-15,Equipment loan (simulated),loan,1450.0,True
+2023-12-18,"Supplies, repairs & services",other_operating,1872.63,True
+2023-12-20,Austin Energy (simulated),utilities,1990.9,True
+2023-12-25,"Supplies, repairs & services",other_operating,1665.73,True
+2023-12-28,Owner distribution,owner_draw,6000.0,False
+2023-12-29,Payroll,payroll,13105.17,True
+2024-01-01,Fictional Properties LLC,rent,6600.0,True
+2024-01-01,"Supplies, repairs & services",other_operating,1631.59,True
+2024-01-05,Marketing & software,discretionary,1050.0,True
+2024-01-08,"Supplies, repairs & services",other_operating,1911.41,True
+2024-01-10,Fictional Mutual Insurance,insurance,3150.0,True
+2024-01-12,Payroll,payroll,13819.23,True
+2024-01-15,Equipment loan (simulated),loan,1450.0,True
+2024-01-15,"Supplies, repairs & services",other_operating,1680.35,True
+2024-01-20,Austin Energy (simulated),utilities,1852.42,True
+2024-01-22,"Supplies, repairs & services",other_operating,1533.94,True
+2024-01-26,Payroll,payroll,13259.81,True
+2024-01-28,Owner distribution,owner_draw,6000.0,False
+2024-01-29,"Supplies, repairs & services",other_operating,1630.06,True
+2024-02-01,Fictional Properties LLC,rent,6600.0,True
+2024-02-05,Marketing & software,discretionary,1050.0,True
+2024-02-05,"Supplies, repairs & services",other_operating,1888.2,True
+2024-02-09,Payroll,payroll,12722.6,True
+2024-02-12,"Supplies, repairs & services",other_operating,1701.64,True
+2024-02-15,Equipment loan (simulated),loan,1450.0,True
+2024-02-19,"Supplies, repairs & services",other_operating,1920.89,True
+2024-02-20,Austin Energy (simulated),utilities,1906.1,True
+2024-02-23,Payroll,payroll,13243.97,True
+2024-02-26,"Supplies, repairs & services",other_operating,1467.31,True
+2024-02-28,Owner distribution,owner_draw,6000.0,False
+2024-03-01,Fictional Properties LLC,rent,6600.0,True
+2024-03-04,"Supplies, repairs & services",other_operating,1835.19,True
+2024-03-05,Marketing & software,discretionary,1050.0,True
+2024-03-08,Payroll,payroll,13316.08,True
+2024-03-11,"Supplies, repairs & services",other_operating,1603.16,True
+2024-03-15,Equipment loan (simulated),loan,1450.0,True
+2024-03-18,"Supplies, repairs & services",other_operating,1822.39,True
+2024-03-20,Austin Energy (simulated),utilities,1895.31,True
+2024-03-22,Payroll,payroll,12805.34,True
+2024-03-25,"Supplies, repairs & services",other_operating,1761.85,True
+2024-03-28,Owner distribution,owner_draw,6000.0,False
+2024-04-01,Fictional Properties LLC,rent,6600.0,True
+2024-04-01,"Supplies, repairs & services",other_operating,1834.55,True
+2024-04-05,Payroll,payroll,13150.48,True
+2024-04-05,Marketing & software,discretionary,1050.0,True
+2024-04-08,"Supplies, repairs & services",other_operating,1953.14,True
+2024-04-10,Fictional Mutual Insurance,insurance,3150.0,True
+2024-04-15,Equipment loan (simulated),loan,1450.0,True
+2024-04-15,"Supplies, repairs & services",other_operating,1553.61,True
+2024-04-19,Payroll,payroll,14285.7,True
+2024-04-20,Austin Energy (simulated),utilities,1867.32,True
+2024-04-22,"Supplies, repairs & services",other_operating,1994.01,True
+2024-04-28,Owner distribution,owner_draw,6000.0,False
+2024-04-29,"Supplies, repairs & services",other_operating,1729.93,True
+2024-05-01,Fictional Properties LLC,rent,6600.0,True
+2024-05-03,Payroll,payroll,13434.46,True
+2024-05-05,Marketing & software,discretionary,1050.0,True
+2024-05-06,"Supplies, repairs & services",other_operating,1577.76,True
+2024-05-13,"Supplies, repairs & services",other_operating,1641.79,True
+2024-05-15,Equipment loan (simulated),loan,1450.0,True
+2024-05-17,Payroll,payroll,12962.33,True
+2024-05-20,Austin Energy (simulated),utilities,1838.31,True
+2024-05-20,"Supplies, repairs & services",other_operating,1874.71,True
+2024-05-27,"Supplies, repairs & services",other_operating,1598.8,True
+2024-05-28,Owner distribution,owner_draw,6000.0,False
+2024-05-31,Payroll,payroll,14117.36,True
+2024-06-01,Fictional Properties LLC,rent,6600.0,True
+2024-06-03,"Supplies, repairs & services",other_operating,1682.47,True
+2024-06-05,Marketing & software,discretionary,1050.0,True
+2024-06-10,"Supplies, repairs & services",other_operating,1722.02,True
+2024-06-14,Payroll,payroll,13663.14,True
+2024-06-15,Equipment loan (simulated),loan,1450.0,True
+2024-06-17,"Supplies, repairs & services",other_operating,1601.19,True
+2024-06-20,Austin Energy (simulated),utilities,2700.7,True
+2024-06-24,"Supplies, repairs & services",other_operating,1643.99,True
+2024-06-28,Payroll,payroll,13332.78,True
+2024-06-28,Owner distribution,owner_draw,6000.0,False
+2024-07-01,Fictional Properties LLC,rent,6600.0,True
+2024-07-01,"Supplies, repairs & services",other_operating,1888.44,True
+2024-07-05,Marketing & software,discretionary,1050.0,True
+2024-07-08,"Supplies, repairs & services",other_operating,1635.83,True
+2024-07-10,Fictional Mutual Insurance,insurance,3150.0,True
+2024-07-12,Payroll,payroll,13115.04,True
+2024-07-15,Equipment loan (simulated),loan,1450.0,True
+2024-07-15,"Supplies, repairs & services",other_operating,1633.18,True
+2024-07-20,Austin Energy (simulated),utilities,2654.7,True
+2024-07-22,"Supplies, repairs & services",other_operating,1647.19,True
+2024-07-26,Payroll,payroll,13652.75,True
+2024-07-28,Owner distribution,owner_draw,6000.0,False
+2024-07-29,"Supplies, repairs & services",other_operating,1795.13,True
+2024-08-01,Fictional Properties LLC,rent,6600.0,True
+2024-08-05,Marketing & software,discretionary,1050.0,True
+2024-08-05,"Supplies, repairs & services",other_operating,1835.97,True
+2024-08-09,Payroll,payroll,14107.92,True
+2024-08-12,"Supplies, repairs & services",other_operating,1867.82,True
+2024-08-15,Equipment loan (simulated),loan,1450.0,True
+2024-08-19,"Supplies, repairs & services",other_operating,1748.83,True
+2024-08-20,Austin Energy (simulated),utilities,2477.22,True
+2024-08-23,Payroll,payroll,13365.99,True
+2024-08-26,"Supplies, repairs & services",other_operating,1546.0,True
+2024-08-28,Owner distribution,owner_draw,6000.0,False
+2024-09-01,Fictional Properties LLC,rent,6600.0,True
+2024-09-02,"Supplies, repairs & services",other_operating,1629.31,True
+2024-09-05,Marketing & software,discretionary,1050.0,True
+2024-09-06,Payroll,payroll,13671.12,True
+2024-09-09,"Supplies, repairs & services",other_operating,1730.68,True
+2024-09-15,Equipment loan (simulated),loan,1450.0,True
+2024-09-16,"Supplies, repairs & services",other_operating,1631.68,True
+2024-09-20,Austin Energy (simulated),utilities,2595.36,True
+2024-09-20,Payroll,payroll,12910.65,True
+2024-09-23,"Supplies, repairs & services",other_operating,1836.47,True
+2024-09-28,Owner distribution,owner_draw,6000.0,False
+2024-09-30,"Supplies, repairs & services",other_operating,1694.48,True
+2024-10-01,Fictional Properties LLC,rent,6600.0,True
+2024-10-04,Payroll,payroll,13984.8,True
+2024-10-05,Marketing & software,discretionary,1050.0,True
+2024-10-07,"Supplies, repairs & services",other_operating,1552.87,True
+2024-10-10,Fictional Mutual Insurance,insurance,3150.0,True
+2024-10-14,"Supplies, repairs & services",other_operating,1585.02,True
+2024-10-15,Equipment loan (simulated),loan,1450.0,True
+2024-10-18,Payroll,payroll,13043.09,True
+2024-10-20,Austin Energy (simulated),utilities,1919.72,True
+2024-10-21,"Supplies, repairs & services",other_operating,1705.51,True
+2024-10-28,"Supplies, repairs & services",other_operating,1690.07,True
+2024-10-28,Owner distribution,owner_draw,6000.0,False
+2024-11-01,Fictional Properties LLC,rent,6600.0,True
+2024-11-01,Payroll,payroll,13693.82,True
+2024-11-04,"Supplies, repairs & services",other_operating,1784.56,True
+2024-11-05,Marketing & software,discretionary,1050.0,True
+2024-11-11,"Supplies, repairs & services",other_operating,1520.92,True
+2024-11-15,Payroll,payroll,13267.08,True
+2024-11-15,Equipment loan (simulated),loan,1450.0,True
+2024-11-18,"Supplies, repairs & services",other_operating,1493.91,True
+2024-11-20,Austin Energy (simulated),utilities,2065.74,True
+2024-11-25,"Supplies, repairs & services",other_operating,1604.94,True
+2024-11-28,Owner distribution,owner_draw,6000.0,False
+2024-11-29,Payroll,payroll,13499.78,True
+2024-12-01,Fictional Properties LLC,rent,6600.0,True
+2024-12-02,"Supplies, repairs & services",other_operating,1649.74,True
+2024-12-05,Marketing & software,discretionary,1050.0,True
+2024-12-09,"Supplies, repairs & services",other_operating,1641.93,True
+2024-12-13,Payroll,payroll,12662.08,True
+2024-12-15,Equipment loan (simulated),loan,1450.0,True
+2024-12-16,"Supplies, repairs & services",other_operating,1660.7,True
+2024-12-20,Austin Energy (simulated),utilities,1882.68,True
+2024-12-23,"Supplies, repairs & services",other_operating,1750.44,True
+2024-12-27,Payroll,payroll,13854.91,True
+2024-12-28,Owner distribution,owner_draw,6000.0,False
+2024-12-30,"Supplies, repairs & services",other_operating,1905.76,True
+2025-01-01,Fictional Properties LLC,rent,6600.0,True
+2025-01-05,Marketing & software,discretionary,1050.0,True
+2025-01-06,"Supplies, repairs & services",other_operating,2053.05,True
+2025-01-10,Payroll,payroll,12635.31,True
+2025-01-10,Fictional Mutual Insurance,insurance,3150.0,True
+2025-01-13,"Supplies, repairs & services",other_operating,1995.2,True
+2025-01-15,Equipment loan (simulated),loan,1450.0,True
+2025-01-20,Austin Energy (simulated),utilities,1949.83,True
+2025-01-20,"Supplies, repairs & services",other_operating,1787.29,True
+2025-01-24,Payroll,payroll,13297.3,True
+2025-01-27,"Supplies, repairs & services",other_operating,1707.68,True
+2025-01-28,Owner distribution,owner_draw,6000.0,False
+2025-02-01,Fictional Properties LLC,rent,6600.0,True
+2025-02-03,"Supplies, repairs & services",other_operating,1794.3,True
+2025-02-05,Marketing & software,discretionary,1050.0,True
+2025-02-07,Payroll,payroll,13569.06,True
+2025-02-10,"Supplies, repairs & services",other_operating,1584.65,True
+2025-02-15,Equipment loan (simulated),loan,1450.0,True
+2025-02-17,"Supplies, repairs & services",other_operating,1601.15,True
+2025-02-20,Austin Energy (simulated),utilities,1819.54,True
+2025-02-21,Payroll,payroll,13146.98,True
+2025-02-24,"Supplies, repairs & services",other_operating,1538.39,True
+2025-02-28,Owner distribution,owner_draw,6000.0,False
+2025-03-01,Fictional Properties LLC,rent,6600.0,True
+2025-03-03,"Supplies, repairs & services",other_operating,1582.92,True
+2025-03-05,Marketing & software,discretionary,1050.0,True
+2025-03-07,Payroll,payroll,13826.54,True
+2025-03-10,"Supplies, repairs & services",other_operating,1807.19,True
+2025-03-15,Equipment loan (simulated),loan,1450.0,True
+2025-03-17,"Supplies, repairs & services",other_operating,1651.65,True
+2025-03-20,Austin Energy (simulated),utilities,1827.59,True
+2025-03-21,Payroll,payroll,12784.72,True
+2025-03-24,"Supplies, repairs & services",other_operating,1684.12,True
+2025-03-28,Owner distribution,owner_draw,6000.0,False
+2025-03-31,"Supplies, repairs & services",other_operating,1442.26,True
+2025-04-01,Fictional Properties LLC,rent,6600.0,True
+2025-04-04,Payroll,payroll,13647.01,True
+2025-04-05,Marketing & software,discretionary,1050.0,True
+2025-04-07,"Supplies, repairs & services",other_operating,1706.07,True
+2025-04-10,Fictional Mutual Insurance,insurance,3150.0,True
+2025-04-14,"Supplies, repairs & services",other_operating,1584.0,True
+2025-04-15,Equipment loan (simulated),loan,1450.0,True
+2025-04-18,Payroll,payroll,12841.35,True
+2025-04-20,Austin Energy (simulated),utilities,1821.83,True
+2025-04-21,"Supplies, repairs & services",other_operating,1838.35,True
+2025-04-28,"Supplies, repairs & services",other_operating,1799.54,True
+2025-04-28,Owner distribution,owner_draw,6000.0,False
+2025-05-01,Fictional Properties LLC,rent,6600.0,True
+2025-05-02,Payroll,payroll,13541.21,True
+2025-05-05,Marketing & software,discretionary,1050.0,True
+2025-05-05,"Supplies, repairs & services",other_operating,1747.09,True
+2025-05-12,"Supplies, repairs & services",other_operating,1740.58,True
+2025-05-15,Equipment loan (simulated),loan,1450.0,True
+2025-05-16,Payroll,payroll,13814.18,True
+2025-05-19,"Supplies, repairs & services",other_operating,1517.44,True
+2025-05-20,Austin Energy (simulated),utilities,1913.63,True
+2025-05-26,"Supplies, repairs & services",other_operating,1667.12,True
+2025-05-28,Owner distribution,owner_draw,6000.0,False
+2025-05-30,Payroll,payroll,13749.74,True
+2025-06-01,Fictional Properties LLC,rent,6600.0,True
+2025-06-02,"Supplies, repairs & services",other_operating,1628.84,True
+2025-06-05,Marketing & software,discretionary,1050.0,True
+2025-06-09,"Supplies, repairs & services",other_operating,1666.51,True
+2025-06-13,Payroll,payroll,13701.07,True
+2025-06-15,Equipment loan (simulated),loan,1450.0,True
+2025-06-16,"Supplies, repairs & services",other_operating,1799.12,True
+2025-06-20,Austin Energy (simulated),utilities,2468.61,True
+2025-06-23,"Supplies, repairs & services",other_operating,1769.84,True
+2025-06-27,Payroll,payroll,13539.33,True
+2025-06-28,Owner distribution,owner_draw,6000.0,False
+2025-06-30,"Supplies, repairs & services",other_operating,1583.96,True
+2025-07-01,Fictional Properties LLC,rent,6600.0,True
+2025-07-05,Marketing & software,discretionary,1050.0,True
+2025-07-07,"Supplies, repairs & services",other_operating,1731.16,True
+2025-07-10,Fictional Mutual Insurance,insurance,3150.0,True
+2025-07-11,Payroll,payroll,13322.39,True
+2025-07-14,"Supplies, repairs & services",other_operating,1559.75,True
+2025-07-15,Equipment loan (simulated),loan,1450.0,True
+2025-07-20,Austin Energy (simulated),utilities,2777.2,True
+2025-07-21,"Supplies, repairs & services",other_operating,1755.59,True
+2025-07-25,Payroll,payroll,13159.31,True
+2025-07-28,"Supplies, repairs & services",other_operating,1814.77,True
+2025-07-28,Owner distribution,owner_draw,6000.0,False
+2025-08-01,Fictional Properties LLC,rent,6600.0,True
+2025-08-04,"Supplies, repairs & services",other_operating,1741.89,True
+2025-08-05,Marketing & software,discretionary,1050.0,True
+2025-08-08,Payroll,payroll,13651.84,True
+2025-08-11,"Supplies, repairs & services",other_operating,1723.42,True
+2025-08-15,Equipment loan (simulated),loan,1450.0,True
+2025-08-18,"Supplies, repairs & services",other_operating,1538.68,True
+2025-08-20,Austin Energy (simulated),utilities,2382.43,True
+2025-08-22,Payroll,payroll,13404.35,True
+2025-08-25,"Supplies, repairs & services",other_operating,1508.23,True
+2025-08-28,Owner distribution,owner_draw,6000.0,False
+2025-09-01,Fictional Properties LLC,rent,6600.0,True
+2025-09-01,"Supplies, repairs & services",other_operating,1638.41,True
+2025-09-05,Payroll,payroll,12638.39,True
+2025-09-05,Marketing & software,discretionary,1050.0,True
+2025-09-08,"Supplies, repairs & services",other_operating,1633.72,True
+2025-09-15,Equipment loan (simulated),loan,1450.0,True
+2025-09-15,"Supplies, repairs & services",other_operating,1708.63,True
+2025-09-19,Payroll,payroll,13177.42,True
+2025-09-20,Austin Energy (simulated),utilities,2627.38,True
+2025-09-22,"Supplies, repairs & services",other_operating,1709.65,True
+2025-09-28,Owner distribution,owner_draw,6000.0,False
+2025-09-29,"Supplies, repairs & services",other_operating,1769.39,True
+2025-10-01,Fictional Properties LLC,rent,6600.0,True
+2025-10-03,Payroll,payroll,13368.79,True
+2025-10-05,Marketing & software,discretionary,1050.0,True
+2025-10-06,"Supplies, repairs & services",other_operating,1783.51,True
+2025-10-10,Fictional Mutual Insurance,insurance,3150.0,True
+2025-10-13,"Supplies, repairs & services",other_operating,1644.57,True
+2025-10-15,Equipment loan (simulated),loan,1450.0,True
+2025-10-17,Payroll,payroll,13529.7,True
+2025-10-20,Austin Energy (simulated),utilities,1900.84,True
+2025-10-20,"Supplies, repairs & services",other_operating,1731.07,True
+2025-10-27,"Supplies, repairs & services",other_operating,1701.35,True
+2025-10-28,Owner distribution,owner_draw,6000.0,False
+2025-10-31,Payroll,payroll,13105.05,True
+2025-11-01,Fictional Properties LLC,rent,6600.0,True
+2025-11-03,"Supplies, repairs & services",other_operating,1766.24,True
+2025-11-05,Marketing & software,discretionary,1050.0,True
+2025-11-10,"Supplies, repairs & services",other_operating,1488.24,True
+2025-11-14,Payroll,payroll,12829.86,True
+2025-11-15,Equipment loan (simulated),loan,1450.0,True
+2025-11-17,"Supplies, repairs & services",other_operating,1473.69,True
+2025-11-20,Austin Energy (simulated),utilities,1959.8,True
+2025-11-24,"Supplies, repairs & services",other_operating,1641.89,True
+2025-11-28,Payroll,payroll,13467.87,True
+2025-11-28,Owner distribution,owner_draw,6000.0,False
+2025-12-01,Fictional Properties LLC,rent,6600.0,True
+2025-12-01,"Supplies, repairs & services",other_operating,1946.49,True
+2025-12-05,Marketing & software,discretionary,1050.0,True
+2025-12-08,"Supplies, repairs & services",other_operating,1796.79,True
+2025-12-12,Payroll,payroll,12472.75,True
+2025-12-15,Equipment loan (simulated),loan,1450.0,True
+2025-12-15,"Supplies, repairs & services",other_operating,1557.75,True
+2025-12-20,Austin Energy (simulated),utilities,1997.14,True
+2025-12-22,"Supplies, repairs & services",other_operating,1689.87,True
+2025-12-26,Payroll,payroll,13763.46,True
+2025-12-28,Owner distribution,owner_draw,6000.0,False
+2025-12-29,"Supplies, repairs & services",other_operating,1960.74,True
+2026-01-01,Fictional Properties LLC,rent,6600.0,True
+2026-01-05,Marketing & software,discretionary,1050.0,True
+2026-01-05,"Supplies, repairs & services",other_operating,1596.9,True
+2026-01-09,Payroll,payroll,14317.0,True
+2026-01-10,Fictional Mutual Insurance,insurance,3150.0,True
+2026-01-12,"Supplies, repairs & services",other_operating,1683.49,True
+2026-01-15,Equipment loan (simulated),loan,1450.0,True
+2026-01-19,"Supplies, repairs & services",other_operating,1693.65,True
+2026-01-20,Austin Energy (simulated),utilities,1977.6,True
+2026-01-23,Payroll,payroll,14817.29,True
+2026-01-26,"Supplies, repairs & services",other_operating,1703.94,True
+2026-01-28,Owner distribution,owner_draw,6000.0,False
+2026-02-01,Fictional Properties LLC,rent,6600.0,True
+2026-02-02,"Supplies, repairs & services",other_operating,1935.69,True
+2026-02-05,Marketing & software,discretionary,1050.0,True
+2026-02-06,Payroll,payroll,13795.4,True
+2026-02-09,"Supplies, repairs & services",other_operating,1721.38,True
+2026-02-15,Equipment loan (simulated),loan,1450.0,True
+2026-02-16,"Supplies, repairs & services",other_operating,1768.0,True
+2026-02-20,Austin Energy (simulated),utilities,1820.36,True
+2026-02-20,Payroll,payroll,13253.32,True
+2026-02-23,"Supplies, repairs & services",other_operating,1519.82,True
+2026-02-28,Owner distribution,owner_draw,6000.0,False
+2026-03-01,Fictional Properties LLC,rent,6600.0,True
+2026-03-02,"Supplies, repairs & services",other_operating,1815.07,True
+2026-03-05,Marketing & software,discretionary,1050.0,True
+2026-03-06,Payroll,payroll,12939.86,True
+2026-03-09,"Supplies, repairs & services",other_operating,1695.77,True
+2026-03-15,Equipment loan (simulated),loan,1450.0,True
+2026-03-16,"Supplies, repairs & services",other_operating,1487.44,True
+2026-03-20,Austin Energy (simulated),utilities,1816.77,True
+2026-03-20,Payroll,payroll,12700.14,True
+2026-03-23,"Supplies, repairs & services",other_operating,1697.32,True
+2026-03-28,Owner distribution,owner_draw,6000.0,False
+2026-03-30,"Supplies, repairs & services",other_operating,1591.74,True
+2026-04-01,Fictional Properties LLC,rent,6600.0,True
+2026-04-03,Payroll,payroll,13320.05,True
+2026-04-05,Marketing & software,discretionary,1050.0,True
+2026-04-06,"Supplies, repairs & services",other_operating,1865.05,True
+2026-04-10,Fictional Mutual Insurance,insurance,3150.0,True
+2026-04-13,"Supplies, repairs & services",other_operating,1886.89,True
+2026-04-15,Equipment loan (simulated),loan,1450.0,True
+2026-04-17,Payroll,payroll,12755.49,True
+2026-04-20,Austin Energy (simulated),utilities,1758.14,True
+2026-04-20,"Supplies, repairs & services",other_operating,1780.1,True
+2026-04-27,"Supplies, repairs & services",other_operating,1738.54,True
+2026-04-28,Owner distribution,owner_draw,6000.0,False
+2026-05-01,Fictional Properties LLC,rent,6600.0,True
+2026-05-01,Payroll,payroll,13674.23,True
+2026-05-04,"Supplies, repairs & services",other_operating,1780.68,True
+2026-05-05,Marketing & software,discretionary,1050.0,True
+2026-05-11,"Supplies, repairs & services",other_operating,1851.04,True
+2026-05-15,Payroll,payroll,13702.08,True
+2026-05-15,Equipment loan (simulated),loan,1450.0,True
+2026-05-18,"Supplies, repairs & services",other_operating,1764.02,True
+2026-05-20,Austin Energy (simulated),utilities,1898.32,True
+2026-05-25,"Supplies, repairs & services",other_operating,1557.25,True
+2026-05-28,Owner distribution,owner_draw,6000.0,False
+2026-05-29,Payroll,payroll,13656.94,True
+2026-06-01,Fictional Properties LLC,rent,6600.0,True
+2026-06-01,"Supplies, repairs & services",other_operating,1780.97,True
+2026-06-05,Marketing & software,discretionary,1050.0,True
+2026-06-08,"Supplies, repairs & services",other_operating,1539.83,True
+2026-06-12,Payroll,payroll,14360.14,True
+2026-06-15,Equipment loan (simulated),loan,1450.0,True
+2026-06-15,"Supplies, repairs & services",other_operating,1842.1,True
+2026-06-20,Austin Energy (simulated),utilities,2335.02,True
+2026-06-22,"Supplies, repairs & services",other_operating,1744.07,True
+2026-06-26,Payroll,payroll,13437.17,True
+2026-06-28,Owner distribution,owner_draw,6000.0,False
+2026-06-29,"Supplies, repairs & services",other_operating,1916.88,True
+2026-07-01,Fictional Properties LLC,rent,6600.0,True
+2026-07-05,Marketing & software,discretionary,1050.0,True
+2026-07-06,"Supplies, repairs & services",other_operating,1843.9,True
+2026-07-10,Payroll,payroll,13992.31,True
+2026-07-10,Fictional Mutual Insurance,insurance,3150.0,True
+2026-07-13,"Supplies, repairs & services",other_operating,1731.01,True
+2026-07-15,Equipment loan (simulated),loan,1450.0,True
+2026-07-20,Austin Energy (simulated),utilities,2655.58,True
+2026-07-20,"Supplies, repairs & services",other_operating,1842.04,True
+2026-07-24,Payroll,payroll,12998.63,True
+2026-07-27,"Supplies, repairs & services",other_operating,1717.97,True
+2026-07-28,Owner distribution,owner_draw,6000.0,False
+2026-08-01,Fictional Properties LLC,rent,6600.0,True
+2026-08-03,"Supplies, repairs & services",other_operating,1687.53,True
+2026-08-05,Marketing & software,discretionary,1050.0,True
+2026-08-07,Payroll,payroll,13504.85,True
+2026-08-10,"Supplies, repairs & services",other_operating,1829.65,True
+2026-08-15,Equipment loan (simulated),loan,1450.0,True
+2026-08-17,"Supplies, repairs & services",other_operating,1639.69,True
+2026-08-20,Austin Energy (simulated),utilities,2397.03,True
+2026-08-21,Payroll,payroll,12901.59,True
+2026-08-24,"Supplies, repairs & services",other_operating,1801.94,True
+2026-08-28,Owner distribution,owner_draw,6000.0,False
+2026-08-31,"Supplies, repairs & services",other_operating,1530.68,True
+2026-09-01,Fictional Properties LLC,rent,6600.0,True
+2026-09-04,Payroll,payroll,13140.38,True
+2026-09-05,Marketing & software,discretionary,1050.0,True
+2026-09-07,"Supplies, repairs & services",other_operating,1762.09,True
+2026-09-14,"Supplies, repairs & services",other_operating,1579.89,True
+2026-09-15,Equipment loan (simulated),loan,1450.0,True
+2026-09-18,Payroll,payroll,12514.24,True
+2026-09-20,Austin Energy (simulated),utilities,2549.54,True
+2026-09-21,"Supplies, repairs & services",other_operating,1722.41,True
+2026-09-28,"Supplies, repairs & services",other_operating,1516.83,True
+2026-09-28,Owner distribution,owner_draw,6000.0,False
+2026-10-01,Fictional Properties LLC,rent,6600.0,True
+2026-10-02,Payroll,payroll,13458.28,True
+2026-10-05,Marketing & software,discretionary,1050.0,True
+2026-10-05,"Supplies, repairs & services",other_operating,1537.95,True
+2026-10-10,Fictional Mutual Insurance,insurance,3150.0,True
+2026-10-12,"Supplies, repairs & services",other_operating,1447.88,True
+2026-10-15,Equipment loan (simulated),loan,1450.0,True
+2026-10-16,Payroll,payroll,13488.21,True
+2026-10-19,"Supplies, repairs & services",other_operating,1726.02,True
+2026-10-20,Austin Energy (simulated),utilities,1910.97,True
+2026-10-26,"Supplies, repairs & services",other_operating,1494.05,True
+2026-10-28,Owner distribution,owner_draw,6000.0,False
+2026-10-30,Payroll,payroll,12416.96,True
+2026-11-01,Fictional Properties LLC,rent,6600.0,True
+2026-11-02,"Supplies, repairs & services",other_operating,1659.39,True
+2026-11-05,Marketing & software,discretionary,1050.0,True
+2026-11-09,"Supplies, repairs & services",other_operating,1617.39,True
+2026-11-13,Payroll,payroll,12892.3,True

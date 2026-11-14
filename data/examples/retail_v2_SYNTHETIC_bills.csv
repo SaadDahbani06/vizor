@@ -1,0 +1,392 @@
+date,payee,category,amount,recurring
+2023-11-17,Payroll,payroll,9563.11,True
+2023-11-18,AEP Ohio (simulated),utilities,1201.47,True
+2023-11-20,"Supplies, repairs & services",other_operating,620.61,True
+2023-11-27,"Supplies, repairs & services",other_operating,638.71,True
+2023-11-28,Owner distribution,owner_draw,4500.0,False
+2023-12-01,Fictional Plaza Partners,rent,7200.0,True
+2023-12-01,Payroll,payroll,8937.92,True
+2023-12-03,POS & software,discretionary,420.0,True
+2023-12-04,"Supplies, repairs & services",other_operating,549.42,True
+2023-12-11,"Supplies, repairs & services",other_operating,611.15,True
+2023-12-15,Payroll,payroll,9040.66,True
+2023-12-18,AEP Ohio (simulated),utilities,1583.69,True
+2023-12-18,"Supplies, repairs & services",other_operating,604.65,True
+2023-12-25,"Supplies, repairs & services",other_operating,612.37,True
+2023-12-28,Owner distribution,owner_draw,4500.0,False
+2023-12-29,Payroll,payroll,9158.29,True
+2024-01-01,Fictional Plaza Partners,rent,7200.0,True
+2024-01-01,"Supplies, repairs & services",other_operating,622.37,True
+2024-01-03,POS & software,discretionary,420.0,True
+2024-01-08,"Supplies, repairs & services",other_operating,558.69,True
+2024-01-12,Payroll,payroll,8970.12,True
+2024-01-12,Fictional Mutual Insurance,insurance,2700.0,True
+2024-01-15,"Supplies, repairs & services",other_operating,562.85,True
+2024-01-18,AEP Ohio (simulated),utilities,1391.46,True
+2024-01-22,"Supplies, repairs & services",other_operating,592.28,True
+2024-01-26,Payroll,payroll,9060.65,True
+2024-01-28,Owner distribution,owner_draw,4500.0,False
+2024-01-29,"Supplies, repairs & services",other_operating,698.14,True
+2024-02-01,Fictional Plaza Partners,rent,7200.0,True
+2024-02-03,POS & software,discretionary,420.0,True
+2024-02-05,"Supplies, repairs & services",other_operating,582.97,True
+2024-02-09,Payroll,payroll,9170.92,True
+2024-02-12,"Supplies, repairs & services",other_operating,643.55,True
+2024-02-18,AEP Ohio (simulated),utilities,1617.36,True
+2024-02-19,"Supplies, repairs & services",other_operating,614.01,True
+2024-02-23,Payroll,payroll,9079.7,True
+2024-02-26,"Supplies, repairs & services",other_operating,623.04,True
+2024-02-28,Owner distribution,owner_draw,4500.0,False
+2024-03-01,Fictional Plaza Partners,rent,7200.0,True
+2024-03-03,POS & software,discretionary,420.0,True
+2024-03-04,"Supplies, repairs & services",other_operating,599.85,True
+2024-03-08,Payroll,payroll,8890.55,True
+2024-03-11,"Supplies, repairs & services",other_operating,569.03,True
+2024-03-18,AEP Ohio (simulated),utilities,1111.47,True
+2024-03-18,"Supplies, repairs & services",other_operating,655.87,True
+2024-03-22,Payroll,payroll,8830.54,True
+2024-03-25,"Supplies, repairs & services",other_operating,567.67,True
+2024-03-28,Owner distribution,owner_draw,4500.0,False
+2024-04-01,Fictional Plaza Partners,rent,7200.0,True
+2024-04-01,"Supplies, repairs & services",other_operating,559.36,True
+2024-04-03,POS & software,discretionary,420.0,True
+2024-04-05,Payroll,payroll,8752.7,True
+2024-04-08,"Supplies, repairs & services",other_operating,634.44,True
+2024-04-12,Fictional Mutual Insurance,insurance,2700.0,True
+2024-04-15,"Supplies, repairs & services",other_operating,695.46,True
+2024-04-18,AEP Ohio (simulated),utilities,1175.4,True
+2024-04-19,Payroll,payroll,9455.61,True
+2024-04-22,"Supplies, repairs & services",other_operating,586.86,True
+2024-04-28,Owner distribution,owner_draw,4500.0,False
+2024-04-29,"Supplies, repairs & services",other_operating,661.23,True
+2024-05-01,Fictional Plaza Partners,rent,7200.0,True
+2024-05-03,Payroll,payroll,9307.8,True
+2024-05-03,POS & software,discretionary,420.0,True
+2024-05-06,"Supplies, repairs & services",other_operating,559.58,True
+2024-05-13,"Supplies, repairs & services",other_operating,554.71,True
+2024-05-17,Payroll,payroll,9099.76,True
+2024-05-18,AEP Ohio (simulated),utilities,1145.04,True
+2024-05-20,"Supplies, repairs & services",other_operating,686.37,True
+2024-05-27,"Supplies, repairs & services",other_operating,654.39,True
+2024-05-28,Owner distribution,owner_draw,4500.0,False
+2024-05-31,Payroll,payroll,9215.84,True
+2024-06-01,Fictional Plaza Partners,rent,7200.0,True
+2024-06-03,POS & software,discretionary,420.0,True
+2024-06-03,"Supplies, repairs & services",other_operating,631.34,True
+2024-06-10,"Supplies, repairs & services",other_operating,653.49,True
+2024-06-14,Payroll,payroll,9395.38,True
+2024-06-17,"Supplies, repairs & services",other_operating,525.92,True
+2024-06-18,AEP Ohio (simulated),utilities,1104.75,True
+2024-06-24,"Supplies, repairs & services",other_operating,626.88,True
+2024-06-28,Payroll,payroll,9271.72,True
+2024-06-28,Owner distribution,owner_draw,4500.0,False
+2024-07-01,Fictional Plaza Partners,rent,7200.0,True
+2024-07-01,"Supplies, repairs & services",other_operating,642.45,True
+2024-07-03,POS & software,discretionary,420.0,True
+2024-07-08,"Supplies, repairs & services",other_operating,656.1,True
+2024-07-12,Payroll,payroll,8937.29,True
+2024-07-12,Fictional Mutual Insurance,insurance,2700.0,True
+2024-07-15,"Supplies, repairs & services",other_operating,542.77,True
+2024-07-18,AEP Ohio (simulated),utilities,1110.26,True
+2024-07-22,"Supplies, repairs & services",other_operating,607.7,True
+2024-07-26,Payroll,payroll,9042.91,True
+2024-07-28,Owner distribution,owner_draw,4500.0,False
+2024-07-29,"Supplies, repairs & services",other_operating,574.04,True
+2024-08-01,Fictional Plaza Partners,rent,7200.0,True
+2024-08-03,POS & software,discretionary,420.0,True
+2024-08-05,"Supplies, repairs & services",other_operating,652.76,True
+2024-08-09,Payroll,payroll,9569.76,True
+2024-08-12,"Supplies, repairs & services",other_operating,601.35,True
+2024-08-18,AEP Ohio (simulated),utilities,1195.98,True
+2024-08-19,"Supplies, repairs & services",other_operating,583.03,True
+2024-08-23,Payroll,payroll,9130.87,True
+2024-08-26,"Supplies, repairs & services",other_operating,624.92,True
+2024-08-28,Owner distribution,owner_draw,4500.0,False
+2024-09-01,Fictional Plaza Partners,rent,7200.0,True
+2024-09-02,"Supplies, repairs & services",other_operating,600.09,True
+2024-09-03,POS & software,discretionary,420.0,True
+2024-09-06,Payroll,payroll,8991.76,True
+2024-09-09,"Supplies, repairs & services",other_operating,625.73,True
+2024-09-16,"Supplies, repairs & services",other_operating,599.17,True
+2024-09-18,AEP Ohio (simulated),utilities,1189.92,True
+2024-09-20,Payroll,payroll,8775.04,True
+2024-09-23,"Supplies, repairs & services",other_operating,593.32,True
+2024-09-28,Owner distribution,owner_draw,4500.0,False
+2024-09-30,"Supplies, repairs & services",other_operating,580.89,True
+2024-10-01,Fictional Plaza Partners,rent,7200.0,True
+2024-10-03,POS & software,discretionary,420.0,True
+2024-10-04,Payroll,payroll,8857.35,True
+2024-10-07,"Supplies, repairs & services",other_operating,632.68,True
+2024-10-12,Fictional Mutual Insurance,insurance,2700.0,True
+2024-10-14,"Supplies, repairs & services",other_operating,713.95,True
+2024-10-18,AEP Ohio (simulated),utilities,1097.87,True
+2024-10-18,Payroll,payroll,9098.16,True
+2024-10-21,"Supplies, repairs & services",other_operating,566.27,True
+2024-10-28,"Supplies, repairs & services",other_operating,597.85,True
+2024-10-28,Owner distribution,owner_draw,4500.0,False
+2024-11-01,Fictional Plaza Partners,rent,7200.0,True
+2024-11-01,Payroll,payroll,8800.31,True
+2024-11-03,POS & software,discretionary,420.0,True
+2024-11-04,"Supplies, repairs & services",other_operating,652.8,True
+2024-11-11,"Supplies, repairs & services",other_operating,605.0,True
+2024-11-15,Payroll,payroll,8839.39,True
+2024-11-18,AEP Ohio (simulated),utilities,1187.31,True
+2024-11-18,"Supplies, repairs & services",other_operating,627.9,True
+2024-11-25,"Supplies, repairs & services",other_operating,638.76,True
+2024-11-28,Owner distribution,owner_draw,4500.0,False
+2024-11-29,Payroll,payroll,8731.79,True
+2024-12-01,Fictional Plaza Partners,rent,7200.0,True
+2024-12-02,"Supplies, repairs & services",other_operating,582.79,True
+2024-12-03,POS & software,discretionary,420.0,True
+2024-12-09,"Supplies, repairs & services",other_operating,534.45,True
+2024-12-13,Payroll,payroll,9384.44,True
+2024-12-16,"Supplies, repairs & services",other_operating,647.28,True
+2024-12-18,AEP Ohio (simulated),utilities,1638.74,True
+2024-12-23,"Supplies, repairs & services",other_operating,647.1,True
+2024-12-27,Payroll,payroll,9099.52,True
+2024-12-28,Owner distribution,owner_draw,4500.0,False
+2024-12-30,"Supplies, repairs & services",other_operating,547.86,True
+2025-01-01,Fictional Plaza Partners,rent,7200.0,True
+2025-01-03,POS & software,discretionary,420.0,True
+2025-01-06,"Supplies, repairs & services",other_operating,659.15,True
+2025-01-10,Payroll,payroll,8612.07,True
+2025-01-12,Fictional Mutual Insurance,insurance,2700.0,True
+2025-01-13,"Supplies, repairs & services",other_operating,631.33,True
+2025-01-18,AEP Ohio (simulated),utilities,1561.48,True
+2025-01-20,"Supplies, repairs & services",other_operating,576.75,True
+2025-01-24,Payroll,payroll,9149.64,True
+2025-01-27,"Supplies, repairs & services",other_operating,514.74,True
+2025-01-28,Owner distribution,owner_draw,4500.0,False
+2025-02-01,Fictional Plaza Partners,rent,7200.0,True
+2025-02-03,POS & software,discretionary,420.0,True
+2025-02-03,"Supplies, repairs & services",other_operating,559.89,True
+2025-02-07,Payroll,payroll,9362.33,True
+2025-02-10,"Supplies, repairs & services",other_operating,556.96,True
+2025-02-17,"Supplies, repairs & services",other_operating,621.7,True
+2025-02-18,AEP Ohio (simulated),utilities,1521.68,True
+2025-02-21,Payroll,payroll,8820.3,True
+2025-02-24,"Supplies, repairs & services",other_operating,567.99,True
+2025-02-28,Owner distribution,owner_draw,4500.0,False
+2025-03-01,Fictional Plaza Partners,rent,7200.0,True
+2025-03-03,POS & software,discretionary,420.0,True
+2025-03-03,"Supplies, repairs & services",other_operating,563.28,True
+2025-03-07,Payroll,payroll,8683.93,True
+2025-03-10,"Supplies, repairs & services",other_operating,590.93,True
+2025-03-17,"Supplies, repairs & services",other_operating,550.8,True
+2025-03-18,AEP Ohio (simulated),utilities,1234.83,True
+2025-03-21,Payroll,payroll,8534.81,True
+2025-03-24,"Supplies, repairs & services",other_operating,549.41,True
+2025-03-28,Owner distribution,owner_draw,4500.0,False
+2025-03-31,"Supplies, repairs & services",other_operating,591.83,True
+2025-04-01,Fictional Plaza Partners,rent,7200.0,True
+2025-04-03,POS & software,discretionary,420.0,True
+2025-04-04,Payroll,payroll,8937.26,True
+2025-04-07,"Supplies, repairs & services",other_operating,650.43,True
+2025-04-12,Fictional Mutual Insurance,insurance,2700.0,True
+2025-04-14,"Supplies, repairs & services",other_operating,592.04,True
+2025-04-18,AEP Ohio (simulated),utilities,1228.34,True
+2025-04-18,Payroll,payroll,8983.2,True
+2025-04-21,"Supplies, repairs & services",other_operating,619.65,True
+2025-04-28,"Supplies, repairs & services",other_operating,607.59,True
+2025-04-28,Owner distribution,owner_draw,4500.0,False
+2025-05-01,Fictional Plaza Partners,rent,7200.0,True
+2025-05-02,Payroll,payroll,8639.83,True
+2025-05-03,POS & software,discretionary,420.0,True
+2025-05-05,"Supplies, repairs & services",other_operating,579.85,True
+2025-05-12,"Supplies, repairs & services",other_operating,527.08,True
+2025-05-16,Payroll,payroll,8974.03,True
+2025-05-18,AEP Ohio (simulated),utilities,1107.84,True
+2025-05-19,"Supplies, repairs & services",other_operating,557.8,True
+2025-05-26,"Supplies, repairs & services",other_operating,669.02,True
+2025-05-28,Owner distribution,owner_draw,4500.0,False
+2025-05-30,Payroll,payroll,8980.05,True
+2025-06-01,Fictional Plaza Partners,rent,7200.0,True
+2025-06-02,"Supplies, repairs & services",other_operating,588.08,True
+2025-06-03,POS & software,discretionary,420.0,True
+2025-06-09,"Supplies, repairs & services",other_operating,646.56,True
+2025-06-13,Payroll,payroll,9310.4,True
+2025-06-16,"Supplies, repairs & services",other_operating,612.17,True
+2025-06-18,AEP Ohio (simulated),utilities,1169.39,True
+2025-06-23,"Supplies, repairs & services",other_operating,565.84,True
+2025-06-27,Payroll,payroll,8857.76,True
+2025-06-28,Owner distribution,owner_draw,4500.0,False
+2025-06-30,"Supplies, repairs & services",other_operating,586.25,True
+2025-07-01,Fictional Plaza Partners,rent,7200.0,True
+2025-07-03,POS & software,discretionary,420.0,True
+2025-07-07,"Supplies, repairs & services",other_operating,600.49,True
+2025-07-11,Payroll,payroll,9138.13,True
+2025-07-12,Fictional Mutual Insurance,insurance,2700.0,True
+2025-07-14,"Supplies, repairs & services",other_operating,578.3,True
+2025-07-18,AEP Ohio (simulated),utilities,1250.99,True
+2025-07-21,"Supplies, repairs & services",other_operating,623.7,True
+2025-07-25,Payroll,payroll,9254.19,True
+2025-07-28,"Supplies, repairs & services",other_operating,602.41,True
+2025-07-28,Owner distribution,owner_draw,4500.0,False
+2025-08-01,Fictional Plaza Partners,rent,7200.0,True
+2025-08-03,POS & software,discretionary,420.0,True
+2025-08-04,"Supplies, repairs & services",other_operating,615.07,True
+2025-08-08,Payroll,payroll,9074.79,True
+2025-08-11,"Supplies, repairs & services",other_operating,576.36,True
+2025-08-18,AEP Ohio (simulated),utilities,1070.07,True
+2025-08-18,"Supplies, repairs & services",other_operating,650.38,True
+2025-08-22,Payroll,payroll,9137.24,True
+2025-08-25,"Supplies, repairs & services",other_operating,586.8,True
+2025-08-28,Owner distribution,owner_draw,4500.0,False
+2025-09-01,Fictional Plaza Partners,rent,7200.0,True
+2025-09-01,"Supplies, repairs & services",other_operating,633.12,True
+2025-09-03,POS & software,discretionary,420.0,True
+2025-09-05,Payroll,payroll,8605.17,True
+2025-09-08,"Supplies, repairs & services",other_operating,602.25,True
+2025-09-15,"Supplies, repairs & services",other_operating,588.22,True
+2025-09-18,AEP Ohio (simulated),utilities,1130.05,True
+2025-09-19,Payroll,payroll,9207.09,True
+2025-09-22,"Supplies, repairs & services",other_operating,639.16,True
+2025-09-28,Owner distribution,owner_draw,4500.0,False
+2025-09-29,"Supplies, repairs & services",other_operating,593.36,True
+2025-10-01,Fictional Plaza Partners,rent,7200.0,True
+2025-10-03,Payroll,payroll,8736.66,True
+2025-10-03,POS & software,discretionary,420.0,True
+2025-10-06,"Supplies, repairs & services",other_operating,629.76,True
+2025-10-12,Fictional Mutual Insurance,insurance,2700.0,True
+2025-10-13,"Supplies, repairs & services",other_operating,561.69,True
+2025-10-17,Payroll,payroll,9338.13,True
+2025-10-18,AEP Ohio (simulated),utilities,1109.22,True
+2025-10-20,"Supplies, repairs & services",other_operating,622.13,True
+2025-10-27,"Supplies, repairs & services",other_operating,552.66,True
+2025-10-28,Owner distribution,owner_draw,4500.0,False
+2025-10-31,Payroll,payroll,9372.01,True
+2025-11-01,Fictional Plaza Partners,rent,7200.0,True
+2025-11-03,POS & software,discretionary,420.0,True
+2025-11-03,"Supplies, repairs & services",other_operating,682.44,True
+2025-11-10,"Supplies, repairs & services",other_operating,546.71,True
+2025-11-14,Payroll,payroll,9148.06,True
+2025-11-17,"Supplies, repairs & services",other_operating,521.67,True
+2025-11-18,AEP Ohio (simulated),utilities,1134.7,True
+2025-11-24,"Supplies, repairs & services",other_operating,615.0,True
+2025-11-28,Payroll,payroll,9061.8,True
+2025-11-28,Owner distribution,owner_draw,4500.0,False
+2025-12-01,Fictional Plaza Partners,rent,7200.0,True
+2025-12-01,"Supplies, repairs & services",other_operating,573.73,True
+2025-12-03,POS & software,discretionary,420.0,True
+2025-12-08,"Supplies, repairs & services",other_operating,576.53,True
+2025-12-12,Payroll,payroll,9179.82,True
+2025-12-15,"Supplies, repairs & services",other_operating,529.35,True
+2025-12-18,AEP Ohio (simulated),utilities,1435.9,True
+2025-12-22,"Supplies, repairs & services",other_operating,637.11,True
+2025-12-26,Payroll,payroll,8925.06,True
+2025-12-28,Owner distribution,owner_draw,4500.0,False
+2025-12-29,"Supplies, repairs & services",other_operating,540.25,True
+2026-01-01,Fictional Plaza Partners,rent,7200.0,True
+2026-01-03,POS & software,discretionary,420.0,True
+2026-01-05,"Supplies, repairs & services",other_operating,534.41,True
+2026-01-09,Payroll,payroll,9189.19,True
+2026-01-12,Fictional Mutual Insurance,insurance,2700.0,True
+2026-01-12,"Supplies, repairs & services",other_operating,560.28,True
+2026-01-18,AEP Ohio (simulated),utilities,1490.14,True
+2026-01-19,"Supplies, repairs & services",other_operating,588.11,True
+2026-01-23,Payroll,payroll,9083.25,True
+2026-01-26,"Supplies, repairs & services",other_operating,598.16,True
+2026-01-28,Owner distribution,owner_draw,4500.0,False
+2026-02-01,Fictional Plaza Partners,rent,7200.0,True
+2026-02-02,"Supplies, repairs & services",other_operating,647.03,True
+2026-02-03,POS & software,discretionary,420.0,True
+2026-02-06,Payroll,payroll,8671.9,True
+2026-02-09,"Supplies, repairs & services",other_operating,616.87,True
+2026-02-16,"Supplies, repairs & services",other_operating,608.68,True
+2026-02-18,AEP Ohio (simulated),utilities,1464.85,True
+2026-02-20,Payroll,payroll,9501.77,True
+2026-02-23,"Supplies, repairs & services",other_operating,530.29,True
+2026-02-28,Owner distribution,owner_draw,4500.0,False
+2026-03-01,Fictional Plaza Partners,rent,7200.0,True
+2026-03-02,"Supplies, repairs & services",other_operating,595.2,True
+2026-03-03,POS & software,discretionary,420.0,True
+2026-03-06,Payroll,payroll,8518.87,True
+2026-03-09,"Supplies, repairs & services",other_operating,508.76,True
+2026-03-16,"Supplies, repairs & services",other_operating,610.73,True
+2026-03-18,AEP Ohio (simulated),utilities,1087.58,True
+2026-03-20,Payroll,payroll,8995.45,True
+2026-03-23,"Supplies, repairs & services",other_operating,570.34,True
+2026-03-28,Owner distribution,owner_draw,4500.0,False
+2026-03-30,"Supplies, repairs & services",other_operating,663.14,True
+2026-04-01,Fictional Plaza Partners,rent,7200.0,True
+2026-04-03,Payroll,payroll,9097.58,True
+2026-04-03,POS & software,discretionary,420.0,True
+2026-04-06,"Supplies, repairs & services",other_operating,676.74,True
+2026-04-12,Fictional Mutual Insurance,insurance,2700.0,True
+2026-04-13,"Supplies, repairs & services",other_operating,604.54,True
+2026-04-17,Payroll,payroll,8982.3,True
+2026-04-18,AEP Ohio (simulated),utilities,1141.5,True
+2026-04-20,"Supplies, repairs & services",other_operating,535.88,True
+2026-04-27,"Supplies, repairs & services",other_operating,551.98,True
+2026-04-28,Owner distribution,owner_draw,4500.0,False
+2026-05-01,Fictional Plaza Partners,rent,7200.0,True
+2026-05-01,Payroll,payroll,9265.52,True
+2026-05-03,POS & software,discretionary,420.0,True
+2026-05-04,"Supplies, repairs & services",other_operating,596.85,True
+2026-05-11,"Supplies, repairs & services",other_operating,512.52,True
+2026-05-15,Payroll,payroll,8814.34,True
+2026-05-18,AEP Ohio (simulated),utilities,1067.96,True
+2026-05-18,"Supplies, repairs & services",other_operating,597.42,True
+2026-05-25,"Supplies, repairs & services",other_operating,621.95,True
+2026-05-28,Owner distribution,owner_draw,4500.0,False
+2026-05-29,Payroll,payroll,9085.65,True
+2026-06-01,Fictional Plaza Partners,rent,7200.0,True
+2026-06-01,"Supplies, repairs & services",other_operating,539.74,True
+2026-06-03,POS & software,discretionary,420.0,True
+2026-06-08,"Supplies, repairs & services",other_operating,614.07,True
+2026-06-12,Payroll,payroll,8977.97,True
+2026-06-15,"Supplies, repairs & services",other_operating,597.54,True
+2026-06-18,AEP Ohio (simulated),utilities,1179.95,True
+2026-06-22,"Supplies, repairs & services",other_operating,667.0,True
+2026-06-26,Payroll,payroll,9085.24,True
+2026-06-28,Owner distribution,owner_draw,4500.0,False
+2026-06-29,"Supplies, repairs & services",other_operating,657.29,True
+2026-07-01,Fictional Plaza Partners,rent,7200.0,True
+2026-07-03,POS & software,discretionary,420.0,True
+2026-07-06,"Supplies, repairs & services",other_operating,597.67,True
+2026-07-10,Payroll,payroll,8552.93,True
+2026-07-12,Fictional Mutual Insurance,insurance,2700.0,True
+2026-07-13,"Supplies, repairs & services",other_operating,641.34,True
+2026-07-18,AEP Ohio (simulated),utilities,1193.08,True
+2026-07-20,"Supplies, repairs & services",other_operating,612.1,True
+2026-07-24,Payroll,payroll,9395.91,True
+2026-07-27,"Supplies, repairs & services",other_operating,500.47,True
+2026-07-28,Owner distribution,owner_draw,4500.0,False
+2026-08-01,Fictional Plaza Partners,rent,7200.0,True
+2026-08-03,POS & software,discretionary,420.0,True
+2026-08-03,"Supplies, repairs & services",other_operating,578.51,True
+2026-08-07,Payroll,payroll,8897.24,True
+2026-08-10,"Supplies, repairs & services",other_operating,721.25,True
+2026-08-17,"Supplies, repairs & services",other_operating,624.27,True
+2026-08-18,AEP Ohio (simulated),utilities,1118.27,True
+2026-08-21,Payroll,payroll,8670.16,True
+2026-08-24,"Supplies, repairs & services",other_operating,609.62,True
+2026-08-28,Owner distribution,owner_draw,4500.0,False
+2026-08-31,"Supplies, repairs & services",other_operating,644.32,True
+2026-09-01,Fictional Plaza Partners,rent,7200.0,True
+2026-09-03,POS & software,discretionary,420.0,True
+2026-09-04,Payroll,payroll,8748.43,True
+2026-09-07,"Supplies, repairs & services",other_operating,611.42,True
+2026-09-14,"Supplies, repairs & services",other_operating,636.42,True
+2026-09-18,AEP Ohio (simulated),utilities,1160.76,True
+2026-09-18,Payroll,payroll,8744.26,True
+2026-09-21,"Supplies, repairs & services",other_operating,605.96,True
+2026-09-28,"Supplies, repairs & services",other_operating,641.3,True
+2026-09-28,Owner distribution,owner_draw,4500.0,False
+2026-10-01,Fictional Plaza Partners,rent,7200.0,True
+2026-10-02,Payroll,payroll,9071.49,True
+2026-10-03,POS & software,discretionary,420.0,True
+2026-10-05,"Supplies, repairs & services",other_operating,540.39,True
+2026-10-12,Fictional Mutual Insurance,insurance,2700.0,True
+2026-10-12,"Supplies, repairs & services",other_operating,580.0,True
+2026-10-16,Payroll,payroll,8910.36,True
+2026-10-18,AEP Ohio (simulated),utilities,1164.64,True
+2026-10-19,"Supplies, repairs & services",other_operating,573.68,True
+2026-10-26,"Supplies, repairs & services",other_operating,632.78,True
+2026-10-28,Owner distribution,owner_draw,4500.0,False
+2026-10-30,Payroll,payroll,9108.38,True
+2026-11-01,Fictional Plaza Partners,rent,7200.0,True
+2026-11-02,"Supplies, repairs & services",other_operating,543.58,True
+2026-11-03,POS & software,discretionary,420.0,True
+2026-11-09,"Supplies, repairs & services",other_operating,688.62,True
+2026-11-13,Payroll,payroll,8730.66,True

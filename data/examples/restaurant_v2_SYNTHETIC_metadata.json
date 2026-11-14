@@ -1,0 +1,37 @@
+{
+  "key": "restaurant",
+  "business_name": "Lone Star Taqueria (fictional)",
+  "industry": "restaurant",
+  "city": "Austin",
+  "state": "TX",
+  "currency": "USD",
+  "data_origin": "SYNTHETIC",
+  "generator": "decisiondesk.synthetic_v2.make_restaurant",
+  "seed": 2026,
+  "start": "2023-11-14",
+  "end": "2026-11-13",
+  "opening_cash": {
+    "amount": 38000.0,
+    "as_of": "2023-11-14",
+    "source": "declared in the synthetic scenario (not a bank balance)"
+  },
+  "objective": "max_expected_profit",
+  "constraints": {
+    "max_price_increase": 0.05,
+    "implementation_budget_usd": 1000.0,
+    "source": "declared in the synthetic business profile"
+  },
+  "units_sold_meaning": "covers (guests served)",
+  "inventory_meaning": "food inventory in cover-portions (Mon/Thu deliveries)",
+  "assumptions": [
+    "About 122 covers/day before seasonality; average ticket $21.00 before menu price changes (+6% Fri/Sat)",
+    "Menu price steps +4.0% (2024-03-01), +3.5% (2025-02-01), +3.0% (2026-03-01)",
+    "Generator demand elasticity -0.7 (hidden from the models and decision engine)",
+    "Food cost $6.90 per cover x supplier index (+3.2%/yr drift, +5% beef shock 2025-06-15)",
+    "Card fees 2.7% on 85% card share; card sales settle next day",
+    "Rent $6,600 (1st); utilities ~$1,900 (+35% Jun-Sep, 20th); biweekly payroll ~$13,400; insurance $3,150 quarterly; equipment loan $1,450 (15th); marketing/software $1,050 (5th); supplies/repairs/services ~$1,700 weekly",
+    "Owner distribution $6,000 on the 28th: a cash outflow, not an operating expense",
+    "Closed Thanksgiving and Christmas; SXSW weeks +22%; Cinco de Mayo +60%",
+    "Supplier invoices paid net-7; opening cash $38,000"
+  ]
+}

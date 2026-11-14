@@ -1,0 +1,2 @@
+# Full install for the HackPrinceton demo (equivalent to: pip install -e '.[dev,ml,ui,agent,messaging]')
+-e .[dev,ml,ui,agent,messaging]

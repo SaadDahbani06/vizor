@@ -1,6 +1,9 @@
-"""LIVE, READ-ONLY integration tests against FRED and the Nessie sandbox.
+"""LIVE integration tests against FRED, the Nessie sandbox, Gemini and Photon.
 
-Skipped unless MSRD_LIVE=1. They never write to Nessie and never print credentials.
+Skipped unless MSRD_LIVE=1. They never write to Nessie, never SEND a Photon message (status reads
+only) and never print credentials. The Gemini test makes real generateContent calls (a few
+requests on the configured key); it SKIPS with the API's reason if Gemini is unavailable, so a
+skip is never reported as a pass.
 
     MSRD_LIVE=1 pytest -q -m live
 """
@@ -97,3 +100,50 @@ def test_nessie_live_unreachable_host_is_graceful():
     with pytest.raises(ConnectorError) as err:
         client.list_customers()
     assert client.api_key not in str(err.value)
+
+
+def test_kwick365_live_schema_and_publication_thresholds(tmp_path):
+    from decisiondesk.connectors.kwick365 import Kwick365Connector
+
+    frame, prov = Kwick365Connector(cache_dir=tmp_path).fetch("online-orders-per-store", "us")
+    assert prov.data_origin == "REAL_AGGREGATE_INDUSTRY" and len(frame) >= 300
+    # Methodology: a day publishes only with >= 30 restaurants and >= 500 orders.
+    assert (frame["n_stores"] >= 30).all() and (frame["n"] >= 500).all()
+    assert frame["day"].is_monotonic_increasing and frame["day"].is_unique
+
+
+# ---------------------------------------------------------------------- Gemini (real calls)
+def test_gemini_live_function_calling_multi_turn():
+    from decisiondesk.agent.agent import DecisionAgent
+    from decisiondesk.agent.tools import BusinessSession
+    if not os.getenv("GEMINI_API_KEY"):
+        pytest.skip("GEMINI_API_KEY not set")
+    s = BusinessSession.from_demo("restaurant", models=("seasonal_naive", "weekday_mean_12w",
+                                                        "historical_mean_28d", "ridge"), n_sims=500)
+    agent = DecisionAgent(s, mode="gemini", channel="imessage")
+    r1 = agent.ask("What should I do if my food costs increase 8%?")
+    if r1.mode != "gemini":
+        pytest.skip(f"Gemini unavailable during this run: {r1.fallback_reason}")
+    assert any(c["name"] == "evaluate_restaurant_actions" for c in r1.tool_calls), r1.text
+    assert s.state.food_cost_change_pct == 8 and r1.grounded, r1.text
+    r2 = agent.ask("And if the increase is 12% instead?")
+    if r2.mode != "gemini":
+        pytest.skip(f"Gemini unavailable on turn 2: {r2.fallback_reason}")
+    assert s.state.food_cost_change_pct == 12 and r2.grounded, r2.text
+    assert r2.tool_calls, "follow-up should re-run the decision tool with the new assumption"
+
+
+# ---------------------------------------------------------------------- Photon (read-only)
+def test_photon_live_status_is_read_only_and_masked():
+    import json
+
+    from decisiondesk.messaging.gateway import PhotonGateway
+    gw = PhotonGateway()
+    if gw.config_problems():
+        pytest.skip("; ".join(gw.config_problems()))
+    st = gw.status()
+    assert st["connected"] and st["imessage"] is not None
+    text = json.dumps(st)
+    for r in gw.recipients():
+        assert r.handle not in text and r.assigned_line not in text
+    assert gw.api_key not in text

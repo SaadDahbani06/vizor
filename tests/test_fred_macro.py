@@ -171,3 +171,16 @@ def test_ablation_cli_missing_key_exits_cleanly(monkeypatch, tmp_path):
     with pytest.raises(SystemExit) as exit_info:
         ablation.cli()
     assert "FRED_API_KEY not configured" in str(exit_info.value)
+
+
+def test_unpublished_month_is_skipped_not_imputed():
+    """October 2025 was never published (federal shutdown): YoY for Oct 2026 is impossible, so the
+    newest observation with a real comparison month is used, from the same vintage."""
+    from decisiondesk.macro import _features_from_snapshot
+
+    idx = pd.date_range("2024-09-01", "2026-10-01", freq="MS").drop(pd.Timestamp("2025-10-01"))
+    snap = pd.Series(np.arange(len(idx), dtype=float) + 100, index=idx)
+    feats = _features_from_snapshot(snap, pd.Timestamp("2026-11-20"), SPEC)
+    sep26, sep25 = snap[pd.Timestamp("2026-09-01")], snap[pd.Timestamp("2025-09-01")]
+    assert feats["x_toy_yoy_pct"] == pytest.approx(100 * (sep26 / sep25 - 1))
+    assert feats["x_toy_age_days"] == (pd.Timestamp("2026-11-20") - pd.Timestamp("2026-10-01")).days

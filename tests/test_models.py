@@ -140,3 +140,16 @@ def test_net_cash_target_supported():
                               cfg=EvaluationConfig(holdout_folds=3),
                               models=("seasonal_naive", "weekday_mean_12w"))
     assert board.val_residuals.shape[1] == H
+
+
+@pytest.mark.parametrize("name", ["ridge", "xgboost", "catboost"])
+def test_constant_anchored_target_is_handled(name):
+    """A perfectly weekly target (e.g. scheduled fixed costs) leaves y - anchor constant;
+    every ML model must still fit and reproduce it instead of crashing."""
+    ok, why = model_mod.REGISTRY[name].availability()
+    if not ok:
+        pytest.skip(why)
+    dates = pd.date_range("2024-01-01", periods=300 + H, freq="D")
+    y = np.where(dates[:300].day_of_week == 0, 1130.0, 980.0)
+    pred, actual = run_cutoffs(name, y, dates, [260], H)
+    np.testing.assert_allclose(pred[0], actual[0])

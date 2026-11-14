@@ -53,7 +53,11 @@ def compare(internal: Leaderboard, macro: Leaderboard, min_rel: float) -> tuple[
         "internal_selected": internal.selected, "fred_arm_selected": macro.selected,
         "validation_gain_of_fred_arm": gain, "required_gain": min_rel,
         "adopt_fred_features": bool(adopt),
-        "reason": (f"FRED arm lowers validation WAPE by {gain:.1%} (>= {min_rel:.0%})" if adopt
+        "reason": (f"Both arms select {internal.selected}, a baseline that ignores external "
+                   "features, so FRED features cannot change the forecast; keep internal-only"
+                   if internal.selected == macro.selected and REGISTRY[internal.selected].kind
+                   == "baseline" else
+                   f"FRED arm lowers validation WAPE by {gain:.1%} (>= {min_rel:.0%})" if adopt
                    else f"FRED arm validation WAPE is {abs(gain):.1%} "
                         f"{'lower' if gain > 0 else 'higher'} than internal-only; needs >= "
                         f"{min_rel:.0%} lower, so keep internal-only features"),

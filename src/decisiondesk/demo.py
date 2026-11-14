@@ -5,8 +5,8 @@ import argparse
 from pathlib import Path
 
 from .data import DatasetSpec, ingest_daily_csv, validate_daily_frame
-from .decisions import compare_actions, operational_inventory_signal
-from .forecast import seasonal_forecast
+from .decision.runner import run_restaurant, run_retail
+from .decision.types import OBJECTIVES, Objective, OrganizationContext, StartingCash, fmt_num
 from .leaderboard import EvaluationConfig, build_leaderboard, forecast_selected, print_leaderboard
 from .models import REGISTRY
 from .risk import backtested_cash_risk
@@ -52,11 +52,13 @@ def main() -> None:
 
     print("\n== 2. Model leaderboards (rolling-origin validation + untouched test) ==")
     targets = ["revenue"] + (["units_sold"] if "units_sold" in history else [])
+    boards = {}
     for target in targets:
         board = build_leaderboard(history, target, dataset=dataset, data_label=label, cfg=cfg,
                                   models=models)
         print_leaderboard(board)
         board.save(args.out)
+        boards[target] = board
 
     print(f"\n== 3. {args.horizon}-day cash risk from backtested net-cash forecast errors ==")
     cash_board = build_leaderboard(history, "net_cash_flow", dataset=dataset, data_label=label,
@@ -72,13 +74,29 @@ def main() -> None:
     for key, value in risk.items():
         print(f"  {key}: {value}")
 
-    print("\nWhat-if decisions; assumptions, NOT causal conclusions "
-          "(still on the weekday-mean baseline; Milestone 3 will use selected models):")
-    print(compare_actions(seasonal_forecast(history, horizon=args.horizon)).to_string(index=False))
-    print("\nOperational signal (heuristic; synthetic inventory has no receipts modeled):")
-    print(operational_inventory_signal(history))
+    print(f"\n== 4. Decision engine on the SELECTED forecasts ({args.horizon} days; modeled "
+          "assumptions, NOT causal effects) ==")
+    cash = (StartingCash(args.starting_cash, "declared by user on the command line", True)
+            if args.starting_cash is not None else None)
+    ctx = OrganizationContext(dataset, args.industry, label, starting_cash=cash)
+    runner = run_restaurant if args.industry == "restaurant" else run_retail
+    run = runner(history, ctx, Objective.MAX_EXPECTED_PROFIT, dataset=dataset, eval_cfg=cfg,
+                 models=models, boards=boards)
+    if run.unsupported:
+        print(f"UNSUPPORTED: {run.unsupported.reason} Missing: {run.unsupported.missing}")
+    else:
+        rec = run.recommendation
+        unit = OBJECTIVES[rec.objective].unit
+        for r in rec.ranking:
+            status = f"#{r.rank}" if r.rank else "excluded"
+            why = f"  <- {'; '.join(r.violations)}" if r.violations else ""
+            print(f"  {status:9s} {r.action_id:24s} expected {rec.metric} "
+                  f"{fmt_num(r.objective_mean):>8} {unit}, vs no action "
+                  f"{fmt_num(r.delta_mean):>8}{why}")
+        print(f"  RECOMMENDED: {rec.recommended_action_id or 'none'} ({rec.strength}). "
+              f"{rec.rationale}")
+        print("  Full report: python -m decisiondesk.decide --scenario " + args.industry)
     print(f"\nLeaderboards saved under {args.out}/ (gitignored).")
-    print("NEXT: point-in-time FRED features + ablation, decision engine on selected forecasts.")
 
 
 def cli() -> None:

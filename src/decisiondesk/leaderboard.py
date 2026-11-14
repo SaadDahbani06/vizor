@@ -122,12 +122,14 @@ def interval_coverage(pred: np.ndarray, actual: np.ndarray, offsets: np.ndarray)
 def select_model(val_wape: dict[str, float | None], *, min_relative_improvement: float) -> tuple[str, str]:
     """Pick by validation WAPE; ML must beat the best baseline by the stated relative margin."""
     scored = {k: v for k, v in val_wape.items() if v is not None and np.isfinite(v)}
-    baselines = {k: v for k, v in scored.items() if k in BASELINES}
+    # Baselines are identified by their registered kind (mandatory ones are in BASELINES).
+    baselines = {k: v for k, v in scored.items()
+                 if k in BASELINES or (k in REGISTRY and REGISTRY[k].kind == "baseline")}
     if not baselines:
         raise ValueError("At least one baseline must be evaluated")
     best_base = min(baselines, key=baselines.get)
     best = min(scored, key=scored.get)
-    if best in BASELINES:
+    if best in baselines:
         return best, f"{best} has the lowest validation WAPE; no model beat the baselines"
     gain = 1 - scored[best] / baselines[best_base] if baselines[best_base] > 0 else 0.0
     if gain < min_relative_improvement:
@@ -337,3 +339,62 @@ def cli() -> None:
 
 if __name__ == "__main__":
     cli()
+
+
+# ---------------------------------------------------------------------------------- disk cache
+CACHE_DIR = Path("data/cache/leaderboards")
+
+
+def _code_fingerprint() -> str:
+    import hashlib
+    import importlib.metadata as md
+    h = hashlib.sha256()
+    here = Path(__file__).parent
+    for name in ("features.py", "models.py", "leaderboard.py"):
+        h.update((here / name).read_bytes())
+    for pkg in ("numpy", "pandas", "scikit-learn", "xgboost", "catboost"):
+        try:
+            h.update(f"{pkg}={md.version(pkg)}".encode())
+        except md.PackageNotFoundError:
+            h.update(f"{pkg}=absent".encode())
+    return h.hexdigest()
+
+
+def leaderboard_cache_key(history: pd.DataFrame, target: str, data_label: str,
+                          cfg: EvaluationConfig, models: tuple[str, ...] | None) -> str:
+    import hashlib
+    y = target_series(history, target)
+    h = hashlib.sha256()
+    h.update(np.ascontiguousarray(y, dtype=float).tobytes())
+    h.update(str(history["date"].iloc[0]).encode() + str(len(history)).encode())
+    h.update(json.dumps({"target": target, "label": data_label, "cfg": asdict(cfg),
+                         "models": list(models or REGISTRY)}, sort_keys=True).encode())
+    h.update(_code_fingerprint().encode())
+    return h.hexdigest()[:32]
+
+
+def build_leaderboard_cached(history: pd.DataFrame, target: str, *, dataset: str, data_label: str,
+                             cfg: EvaluationConfig | None = None,
+                             models: tuple[str, ...] | None = None,
+                             cache_dir: Path | str | None = None) -> Leaderboard:
+    """Same result as ``build_leaderboard``; reuses a validated on-disk copy when the data, config,
+    model list, forecasting code and library versions are byte-for-byte identical."""
+    import pickle
+    cfg = cfg or EvaluationConfig()
+    folder = Path(cache_dir or CACHE_DIR)
+    key = leaderboard_cache_key(history, target, data_label, cfg, models)
+    path = folder / f"{dataset}_{target}_{key}.pkl"
+    if path.exists():
+        with path.open("rb") as fh:  # local, gitignored cache written only by this function
+            board = pickle.load(fh)
+        board.meta["cache"] = {"hit": True, "key": key}
+        return board
+    board = build_leaderboard(history, target, dataset=dataset, data_label=data_label, cfg=cfg,
+                              models=models)
+    folder.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with tmp.open("wb") as fh:
+        pickle.dump(board, fh)
+    tmp.replace(path)
+    board.meta["cache"] = {"hit": False, "key": key}
+    return board

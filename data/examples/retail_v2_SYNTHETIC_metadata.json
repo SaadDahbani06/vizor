@@ -1,0 +1,37 @@
+{
+  "key": "retail",
+  "business_name": "Maple Street Hardware (fictional)",
+  "industry": "retail",
+  "city": "Columbus",
+  "state": "OH",
+  "currency": "USD",
+  "data_origin": "SYNTHETIC",
+  "generator": "decisiondesk.synthetic_v2.make_retail",
+  "seed": 2027,
+  "start": "2023-11-14",
+  "end": "2026-11-13",
+  "opening_cash": {
+    "amount": 55000.0,
+    "as_of": "2023-11-14",
+    "source": "declared in the synthetic scenario (not a bank balance)"
+  },
+  "objective": "max_expected_profit",
+  "constraints": {
+    "storage_capacity_units": 2500.0,
+    "max_stockout_after_arrival": 0.25,
+    "purchase_budget_28d_usd": null,
+    "source": "declared in the synthetic business profile; budget to be stated by the user"
+  },
+  "units_sold_meaning": "items sold (capped by stock on hand; lost sales unobserved)",
+  "inventory_meaning": "items on hand at end of day",
+  "assumptions": [
+    "Average item price $21.40; list prices +2.5% each Jan 15; monthly 3-day promotions -10%",
+    "Generator demand elasticity -1.1 (hidden from the models and decision engine)",
+    "Unit cost 54% of base price x wholesale index (+2.8%/yr drift)",
+    "Weekly Monday review up to 2 weeks of recent sales x 1.15; lead time 7 days (10% chance 10)",
+    "Closed Thanksgiving, Christmas, Easter, New Year's Day; Black Friday +60%",
+    "Rent $7,200 (1st); utilities ~$1,150 (+30% Dec-Feb, 18th); biweekly payroll ~$9,000; insurance $2,700 quarterly; POS/software $420 (3rd); supplies/repairs ~$600 weekly",
+    "Owner distribution $4,500 on the 28th: a cash outflow, not an operating expense",
+    "Card fees 2.5% on 90% card share; supplier invoices paid net-30; opening cash $55,000"
+  ]
+}

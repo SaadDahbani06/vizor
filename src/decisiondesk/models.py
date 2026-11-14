@@ -48,11 +48,20 @@ class AnchoredRegressor:
     def fit(self, X: pd.DataFrame, y: np.ndarray) -> AnchoredRegressor:
         # Internal features plus any origin-level exogenous columns (prefixed "x_").
         self.columns = [*FEATURE_COLUMNS, *sorted(c for c in X.columns if str(c).startswith("x_"))]
+        target = y - X[ANCHOR].to_numpy()
+        self.constant = None
+        if np.ptp(target) == 0:
+            # Anchor already explains the target exactly (e.g. a fixed weekly cost schedule);
+            # some learners (CatBoost) refuse constant targets, and the right fit is the constant.
+            self.constant, self.model = float(target[0]), None
+            return self
         self.model = self.factory()
-        self.model.fit(X[self.columns], y - X[ANCHOR].to_numpy())
+        self.model.fit(X[self.columns], target)
         return self
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
+        if self.constant is not None:
+            return X[ANCHOR].to_numpy() + self.constant
         return X[ANCHOR].to_numpy() + np.asarray(self.model.predict(X[self.columns]))
 
 
@@ -93,6 +102,9 @@ REGISTRY: dict[str, ModelSpec] = {
     "weekday_mean_12w": ModelSpec("weekday_mean_12w", "baseline",
                                   lambda: BaselineModel("wd_mean_12"),
                                   description="Mean of last 12 same-weekday values (starter model)"),
+    "historical_mean_28d": ModelSpec("historical_mean_28d", "baseline",
+                                     lambda: BaselineModel("roll_mean_28"),
+                                     description="Mean of the last 28 observed days (no seasonality)"),
     "ridge": ModelSpec("ridge", "ml", lambda: AnchoredRegressor(_ridge),
                        description="Standardized Ridge(alpha=1) on lag/rolling/calendar features"),
     "xgboost": ModelSpec("xgboost", "ml", lambda: AnchoredRegressor(_xgboost), requires="xgboost",

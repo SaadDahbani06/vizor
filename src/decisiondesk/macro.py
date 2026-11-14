@@ -32,6 +32,10 @@ DEFAULT_SERIES = {
         MacroSpec("CUSR0000SEFV", "yoy_pct", "CPI food away from home: restaurant menu prices"),
         MacroSpec("UNRATE", "level_chg3", "Unemployment rate: local demand / labor context"),
     ),
+    "retail_iowa_liquor": (
+        MacroSpec("CUSR0000SAF116", "yoy_pct", "CPI alcoholic beverages: wholesale/retail prices"),
+        MacroSpec("IAUR", "level_chg3", "Iowa unemployment rate: local demand context"),
+    ),
     "retail": (
         MacroSpec("CPIAUCSL", "yoy_pct", "CPI all items: general price level"),
         MacroSpec("RSXFS", "yoy_pct", "Advance retail sales ex food services: sector demand"),
@@ -47,21 +51,34 @@ def snapshot(vintages: pd.DataFrame, asof) -> pd.Series:
     return live.set_index("observed_at")["value"].sort_index()
 
 
+def _latest_comparable(snap: pd.Series, offset: pd.DateOffset) -> pd.Timestamp | None:
+    """Most recent observation whose comparison period (obs - offset) is also in the snapshot.
+
+    Needed because some months were never published (e.g. October 2025, during the federal
+    government shutdown). The missing value is never imputed; we step back to the newest
+    observation that has a real comparison value in the SAME vintage.
+    """
+    for obs in sorted(snap.index, reverse=True):
+        if obs - offset in snap.index:
+            return obs
+    return None
+
+
 def _features_from_snapshot(snap: pd.Series, asof: pd.Timestamp, spec: MacroSpec) -> dict:
     sid = spec.series_id.lower()
     if snap.empty:
         return {}
     latest = snap.index.max()
-    value = float(snap.loc[latest])
     out = {f"x_{sid}_age_days": float((asof - latest).days)}
     if spec.transform == "yoy_pct":
-        prior = latest - pd.DateOffset(years=1)
-        out[f"x_{sid}_yoy_pct"] = (100 * (value / snap.loc[prior] - 1)
-                                   if prior in snap.index else np.nan)
+        obs = _latest_comparable(snap, pd.DateOffset(years=1))
+        out[f"x_{sid}_yoy_pct"] = (np.nan if obs is None else
+                                   100 * (snap.loc[obs] / snap.loc[obs - pd.DateOffset(years=1)] - 1))
     elif spec.transform == "level_chg3":
-        prior = latest - pd.DateOffset(months=3)
-        out[f"x_{sid}_level"] = value
-        out[f"x_{sid}_chg3"] = value - snap.loc[prior] if prior in snap.index else np.nan
+        out[f"x_{sid}_level"] = float(snap.loc[latest])
+        obs = _latest_comparable(snap, pd.DateOffset(months=3))
+        out[f"x_{sid}_chg3"] = (np.nan if obs is None else
+                                snap.loc[obs] - snap.loc[obs - pd.DateOffset(months=3)])
     else:
         raise ValueError(f"unknown transform {spec.transform}")
     return out
