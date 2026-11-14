@@ -71,6 +71,10 @@ class MessagingStore:
     def __init__(self, path: str | Path | None = None):
         self.path = Path(path or os.getenv("MSRD_MESSAGING_STATE") or STATE_PATH)
         self.lock = threading.RLock()
+        self.reload()
+
+    def reload(self) -> None:
+        """Re-read the state file (used by read-only viewers while another process polls)."""
         data = json.loads(self.path.read_text()) if self.path.exists() else {}
         self.owners = {h: Owner(**o) for h, o in data.get("owners", {}).items()}
         self.processed: list[str] = data.get("processed", [])
@@ -175,7 +179,9 @@ class SimulatorGateway:
 class MessagingService:
     def __init__(self, gateway, store: MessagingStore,
                  session_provider: Callable[[str], object], *, agent_mode: str | None = None,
-                 daily_limit: int | None = None, agent_client=None):
+                 daily_limit: int | None = None, agent_client=None, scenarios=None):
+        from .shared import ScenarioStore
+        self.scenarios = scenarios or ScenarioStore()
         self.gateway = gateway
         self.store = store
         self.session_provider = session_provider
@@ -225,17 +231,43 @@ class MessagingService:
             self.store.cursor = _iso(_now() - timedelta(seconds=5))
             self.store.save()
 
+    def scenario_source(self, business_key: str) -> dict:
+        """What scenario iMessage answers use for this business (shown in the dashboard)."""
+        from .shared import scenario_summary
+        rec = self.scenarios.get(business_key)
+        if rec:
+            return {"version": rec["version"], "published_at": rec["published_at"],
+                    "summary": rec["summary"], "source": rec.get("source", "dashboard")}
+        return {"version": 0, "published_at": None, "summary": scenario_summary(None),
+                "source": "default"}
+
     def agent_for(self, owner: Owner) -> DecisionAgent:
         """One isolated agent per owner and business: its own conversation memory, scenario
         state and tool log. Fitted leaderboards/forecasts (pure functions of the data) are shared
-        with the base session so a second owner does not refit the models."""
+        with the base session so a second owner does not refit the models.
+
+        Scenario source (identical in the dashboard and the worker): the scenario PUBLISHED from
+        the dashboard for this business, or the business's default scenario. A newly published
+        version replaces the owner's scenario at their next message; changes the owner makes by
+        text persist until then."""
         key = f"{owner.handle}|{owner.business_key}"
+        rec = self.scenarios.get(owner.business_key)
+        version = rec["version"] if rec else 0
         if key not in self.agents:
             base = self.session_provider(owner.business_key)
-            session = replace(base, state=deepcopy(base.state), log=[])
+            session = replace(base, state=base.default_state(), log=[])
             self.agents[key] = DecisionAgent(session, mode=self.agent_mode, channel="imessage",
                                              client=self.agent_client)
-        return self.agents[key]
+            self.agents[key].scenario_version = 0
+        agent = self.agents[key]
+        if version != getattr(agent, "scenario_version", 0):
+            state = agent.session.default_state()
+            for k, v in ((rec or {}).get("state") or {}).items():
+                if hasattr(state, k):
+                    setattr(state, k, deepcopy(v))
+            agent.session.state = state
+            agent.scenario_version = version
+        return agent
 
     def set_alert_consent(self, handle: str, opted_in: bool, source: str = "dashboard") -> Owner:
         with self.store.lock:
@@ -360,10 +392,16 @@ class MessagingService:
         reply = agent.ask(question)
         footer = "" if reply.grounded else " (some figures could not be verified)"
         body = f"{reply.text}{footer}"
+        src = self.scenario_source(o.business_key)
         return self._send(o, body, key=key, kind=f"reply:{reply.mode}", parent=mid,
                           evidence={"run_ids": [c["output"]["run_id"] for c in reply.tool_calls
                                                 if "output" in c], "analyst": reply.mode,
-                                    "grounded": reply.grounded})
+                                    "grounded": reply.grounded,
+                                    "tools": [c["name"] for c in reply.tool_calls],
+                                    "model": getattr(getattr(agent, "gemini", None), "model", None)
+                                    if reply.mode == "gemini" else None,
+                                    "scenario_version": src["version"],
+                                    "scenario": src["summary"]})
 
     def poll_once(self) -> list[dict]:
         """Fetch new inbound messages (bounded) and answer them; returns sent records."""
@@ -409,6 +447,10 @@ class MessagingService:
                 # Final "accepted": the platform took the message but delivery will not be
                 # confirmed (e.g. delivery_confirmation_unavailable / _timed_out). Never "delivered".
                 rec["acceptance"] = msg["acceptance"].get("code") or "accepted"
+            for convo in self.store.conversations.values():  # keep the chat view in step
+                for entry in convo:
+                    if entry.get("message_id") == rec["message_id"]:
+                        entry["status"] = rec["status"]
             n += 1
         self.store.save()
         return n

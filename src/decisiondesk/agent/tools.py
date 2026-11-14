@@ -64,6 +64,11 @@ class ScenarioState:
     purchase_budget_usd: float | None = None
     storage_units: float | None = None
     max_stockout_probability: float | None = None
+    product_scenario: dict | None = None  # last Scenario Lab settings (ProductScenario fields)
+
+
+class ProductLayerUnavailable(ValueError):
+    """Product-level analytics need product records (only the demo restaurant has them)."""
 
 
 @dataclass
@@ -84,6 +89,7 @@ class BusinessSession:
     monitor_path: str = "data/cache/monitor_state.json"
     leaderboard_cache_dir: str | None = None  # None -> data/cache/leaderboards
     nessie_client: object = None  # injectable Nessie client (tests); read-only use
+    product_ctx: object = None    # lazily built Scenario Lab context (shared read-only)
 
     # ------------------------------------------------------------------ construction
     @classmethod
@@ -91,12 +97,38 @@ class BusinessSession:
         ds = load_business(key)
         hist, _ = validate_daily_frame(ds.daily, source=f"synthetic_v2:{key}")
         s = cls(hist, ds.metadata, ds.bills, dataset=f"{key}_v2_SYNTHETIC", **kw)
-        cons = ds.metadata.get("constraints", {})
-        s.state.max_price_increase = cons.get("max_price_increase")
-        s.state.storage_units = cons.get("storage_capacity_units")
-        s.state.max_stockout_probability = cons.get("max_stockout_after_arrival")
-        s.state.purchase_budget_usd = cons.get("purchase_budget_28d_usd")
+        s.state = s.default_state()
         return s
+
+    def default_state(self) -> ScenarioState:
+        """The scenario with no user changes: only the business's declared constraints."""
+        cons = self.metadata.get("constraints", {})
+        return ScenarioState(max_price_increase=cons.get("max_price_increase"),
+                             storage_units=cons.get("storage_capacity_units"),
+                             max_stockout_probability=cons.get("max_stockout_after_arrival"),
+                             purchase_budget_usd=cons.get("purchase_budget_28d_usd"))
+
+    @property
+    def has_products(self) -> bool:
+        return self.metadata.get("key") == "restaurant" and self.data_label == "SYNTHETIC"
+
+    def product_context(self):
+        """Scenario Lab context: product forecasts, ingredient stock and cost rates."""
+        if not self.has_products:
+            raise ProductLayerUnavailable(
+                "Product-level analytics need product records (price, unit cost, units and "
+                "stock per product). This dataset has daily totals only.")
+        if self.product_ctx is None:
+            from ..decision.product_scenario import build_product_context
+            from ..products import restaurant_products
+            self.product_ctx = build_product_context(
+                restaurant_products(), self.bundle(("revenue", "variable_costs", "fixed_costs")),
+                dataset=self.dataset, data_label=self.data_label, daily=self.history,
+                bills=self.bills, max_price_increase=self.state.max_price_increase,
+                models=self.models, n_sims=min(self.n_sims, 1000),
+                cache_dir=self.leaderboard_cache_dir)
+        self.product_ctx.max_price_increase = self.state.max_price_increase
+        return self.product_ctx
 
     @classmethod
     def from_upload(cls, path: str | Path, mapping: ColumnMapping, profile: BusinessProfile,
@@ -447,9 +479,161 @@ def assess_cash_risk(s: BusinessSession, starting_cash: float | None = None) -> 
 
 def get_assumptions(s: BusinessSession) -> dict:
     return s._stamp("get_assumptions", {}, {
-        "scenario_state": asdict(s.state), "business_assumptions": s.metadata.get("assumptions", []),
+        "scenario_state": asdict(s.state),
+        "business_assumptions": [a for a in s.metadata.get("assumptions", [])
+                                 if "hidden from the models" not in a],
         "declared_constraints": s.metadata.get("constraints", {}),
         "opening_cash": s.metadata.get("opening_cash")})
+
+
+def _round_tree(x, nd=2):
+    if isinstance(x, float):
+        return round(x, nd)
+    if isinstance(x, dict):
+        return {k: _round_tree(v, nd) for k, v in x.items()}
+    if isinstance(x, list):
+        return [_round_tree(v, nd) for v in x]
+    return x
+
+
+def _product_unavailable(s: BusinessSession, name: str, inputs: dict, exc: Exception) -> dict:
+    return s._stamp(name, inputs, {"available": False, "reason": str(exc),
+                                   "what_is_needed": "daily records per product: units sold, "
+                                                     "price, unit cost, and stock or ingredient "
+                                                     "inventory"})
+
+
+def get_product_performance(s: BusinessSession, period_days: int = 28) -> dict:
+    """Five tracked products: observed sales and margins, forecast demand, stock and risk."""
+    from .. import dashboard
+    from ..decision.product_scenario import ELASTICITY as PELAST
+    period = {7: "28d", 28: "28d", 90: "90d", 365: "365d"}.get(int(period_days), "28d")
+    try:
+        t = dashboard.product_table(s, period)
+    except ProductLayerUnavailable as exc:
+        return _product_unavailable(s, "get_product_performance", {"period_days": period_days}, exc)
+    ctx = s.product_context()
+    rows = []
+    for r in t.to_dict(orient="records"):
+        rows.append({"product": r["product"], "product_id": r["product_id"],
+                     "menu_price": r["price"], "ingredient_cost_per_unit": round(r["unit_cost"], 2),
+                     "units_sold": r["units_sold"], "revenue": round(r["revenue"]),
+                     "gross_profit": round(r["gross_profit"]),
+                     "gross_margin_pct": round(r["gross_margin_pct"], 1),
+                     "stockout_days": r["stockout_days"],
+                     "forecast_demand_next_7_days": round(r["forecast_demand_7d"]),
+                     "stock_days_of_supply": round(r["days_of_supply"], 1),
+                     "stockout_risk_next_7_days_pct": round(r["stockout_risk_7d"] * 100),
+                     "forecast_model": ctx.boards[r["product_id"]]["selected_model"],
+                     "forecast_test_mae_units_per_day": round(ctx.boards[r["product_id"]]["test_mae"], 1),
+                     "assumed_price_elasticity": PELAST[r["product_id"]].value})
+    by = {k: max(rows, key=lambda r: r[k])["product"] for k in ("units_sold", "gross_profit", "revenue")}
+    low = min(rows, key=lambda r: r["gross_margin_pct"])["product"]
+    risk = max(rows, key=lambda r: (r["stockout_risk_next_7_days_pct"], -r["stock_days_of_supply"]))
+    w = dashboard.window(s.history, period)
+    return s._stamp("get_product_performance", {"period_days": period_days}, {
+        "available": True, "period": w.label, "products": rows,
+        "best_seller_by_revenue": by["revenue"], "most_units_sold": by["units_sold"],
+        "most_profitable_by_gross_profit": by["gross_profit"],
+        "lowest_gross_margin": low, "highest_stockout_risk": risk["product"],
+        "definitions": {"gross_profit": "revenue minus ingredient cost of the units sold",
+                        "stockout_risk": "share of simulated next-7-day paths leaving at least 1% "
+                                         "of demand unmet under the current ordering plan",
+                        "days_of_supply": "days until the first ingredient the product needs runs "
+                                          "out at forecast usage, before the next delivery"},
+        "origins": {"sales_and_margins": "observed (SYNTHETIC records)",
+                    "demand_forecast": "model forecast (validated on synthetic history only)",
+                    "stockout_risk": "simulation under the ordering plan and assumptions"}})
+
+
+def simulate_product_scenario(s: BusinessSession, product: str | None = None,
+                              price_change_pct: float | None = None,
+                              supply_change_pct: float | None = None,
+                              extra_units: float | None = None,
+                              demand_shock_pct: float | None = None,
+                              demand_shock_scope: str | None = None,
+                              marketing_change_pct: float | None = None,
+                              horizon_days: int | None = None) -> dict:
+    """Simulate one product scenario against the current plan; nulls keep the Scenario Lab's
+    current setting (or no change)."""
+    from ..decision.product_scenario import ProductScenario, baseline, compare, recommend, simulate
+    inputs = {"product": product, "price_change_pct": price_change_pct,
+              "supply_change_pct": supply_change_pct, "extra_units": extra_units,
+              "demand_shock_pct": demand_shock_pct, "demand_shock_scope": demand_shock_scope,
+              "marketing_change_pct": marketing_change_pct, "horizon_days": horizon_days}
+    try:
+        ctx = s.product_context()
+    except ProductLayerUnavailable as exc:
+        return _product_unavailable(s, "simulate_product_scenario", inputs, exc)
+    cur = dict(s.state.product_scenario or {})
+    pid = (product or cur.get("product_id") or "tacos").strip().lower()
+    pid = {"taco": "tacos", "burrito": "burritos", "quesadilla": "quesadillas", "nacho": "nachos",
+           "drink": "drinks"}.get(pid, pid)
+    same = pid == cur.get("product_id")
+
+    def pick(name, given, default=0.0):
+        if given is not None:
+            return given
+        return cur.get(name, default) if same else default
+
+    sc = ProductScenario(
+        pid, float(pick("price_change_pct", price_change_pct)),
+        float(pick("supply_change_pct", supply_change_pct)), float(pick("extra_units", extra_units)),
+        float(pick("demand_shock_pct", demand_shock_pct)),
+        str(pick("demand_shock_scope", demand_shock_scope, "product")),
+        float(pick("marketing_change_pct", marketing_change_pct)),
+        int(horizon_days or cur.get("horizon_days") or 28))
+    s.state.product_scenario = asdict(sc)
+    c = compare(ctx, simulate(ctx, sc), baseline(ctx, sc.horizon_days, sc.product_id))
+    rec = recommend(ctx, sc)
+
+    def money(b):
+        return {"baseline": round(b["baseline"]), "scenario": round(b["scenario"]),
+                "change": round(b["change"]),
+                "change_pct": None if b["change_pct"] is None else round(b["change_pct"], 1),
+                "change_90pct_range": [round(v) for v in b["change_90pct_range"]]}
+
+    out = {
+        "available": True, "scenario": c["scenario"], "scenario_text": c["scenario_text"],
+        "horizon_days": c["horizon_days"], "forecast_window": [c["forecast_start"], c["forecast_end"]],
+        "selected_product_current_price": c["current_price"],
+        "selected_product_new_price": c["new_price"],
+        "revenue": money(c["revenue"]), "operating_profit": money(c["profit"]),
+        "operating_cash_flow": money(c["cash_flow"]),
+        "selected_product_demand_units": money(c["demand_units"]),
+        "selected_product_units_sold": money(c["units_sold"]),
+        "gross_margin_pct": {k: round(v, 1) for k, v in c["gross_margin_pct"].items()},
+        "ending_ingredient_inventory_value": money(c["ending_inventory_value"]),
+        "selected_product_stockout_risk_pct": {k: round(v * 100) for k, v in c["stockout_risk"].items()},
+        "probability_profit_improves_pct": round(c["probability_profit_improves"] * 100),
+        "product_impacts": [{"product": p["product"], "revenue_change": round(p["revenue_change"]),
+                             "gross_profit_change": round(p["gross_profit_change"]),
+                             "units_sold_change": round(p["units_sold_change"])}
+                            for p in c["products"]],
+        "within_owner_policy": c["within_policy"], "policy_violations": c["policy_violations"],
+        "recommendation": rec["text"],
+        "recommended_action": rec["recommended"]["action"] if rec["recommended"] else None,
+        "alternatives": [{"action": r["action"], "profit_change": round(r["profit_change"]),
+                          "profit_change_90pct_range": [round(v) for v in r["profit_change_90pct_range"]]}
+                         for r in rec["ranked"][:4]],
+        "sensitivity": [{"assumption": x["assumption"], "level": x["level"], "value": x["value"],
+                         "profit_change": round(x["profit_change"])} for x in rec["sensitivity"]],
+        "assumptions": [{k: a[k] for k in ("name", "value", "low", "high", "source")}
+                        for a in c["assumptions"]],
+        "interval_meaning": c["interval_meaning"], "effect_type": c["effect_type"],
+        "n_simulations": c["n_simulations"], "requires_human_approval": True}
+    return s._stamp("simulate_product_scenario", inputs, out)
+
+
+def explain_profit_change(s: BusinessSession, period_days: int = 28) -> dict:
+    from .. import dashboard
+    out = dashboard.profit_change(s, int(period_days))
+    out["drivers"] = [{k: (round(v) if isinstance(v, float) else v) for k, v in d.items()}
+                      for d in out["drivers"][:8]]
+    out["profit"] = {k: round(v) for k, v in out["profit"].items()}
+    out["products"] = [{k: (round(v) if isinstance(v, float) else v) for k, v in p.items()}
+                       for p in out["products"]]
+    return s._stamp("explain_profit_change", {"period_days": period_days}, out)
 
 
 def create_alert_rule(s: BusinessSession, kind: str, series_id: str | None = None,
@@ -498,6 +682,9 @@ TOOL_FUNCS = {
     "evaluate_inventory_policies": evaluate_inventory_policies,
     "assess_cash_risk": assess_cash_risk,
     "get_assumptions": get_assumptions,
+    "get_product_performance": get_product_performance,
+    "simulate_product_scenario": simulate_product_scenario,
+    "explain_profit_change": explain_profit_change,
 }
 
 
@@ -592,6 +779,46 @@ TOOL_SCHEMAS = [
                     "assumptions with their sources.",
      "input_schema": {"type": "object", "additionalProperties": False, "required": [],
                       "properties": {}}},
+    {"name": "get_product_performance",
+     "description": "Per-product table for the five tracked products (tacos, burritos, "
+                    "quesadillas, nachos, drinks): price, ingredient cost, units, revenue, gross "
+                    "profit and margin, forecast demand for the next 7 days, days of ingredient "
+                    "supply and simulated stock-out risk. Use for 'which product is most "
+                    "profitable / best selling / at risk' questions.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": ["period_days"],
+                      "properties": {"period_days": {"type": "integer", "enum": [28, 90, 365],
+                                                     "description": "Lookback for observed sales."}}}},
+    {"name": "simulate_product_scenario",
+     "description": "Scenario Lab: simulate changing ONE product's price, its ingredient orders, "
+                    "a one-time extra ingredient purchase, a demand shock, or marketing spend, "
+                    "against the current plan over 7, 14 or 28 days. Returns revenue, operating "
+                    "profit, cash flow, demand, units sold, stock-out risk, product impacts, the "
+                    "owner's price policy check, a ranked recommendation and sensitivity. Pass "
+                    "null to keep the Scenario Lab's current value (or no change).",
+     "input_schema": {"type": "object", "additionalProperties": False,
+                      "required": ["product", "price_change_pct", "supply_change_pct",
+                                   "extra_units", "demand_shock_pct", "demand_shock_scope",
+                                   "marketing_change_pct", "horizon_days"],
+                      "properties": {
+                          "product": _nullable("string", "tacos, burritos, quesadillas, nachos "
+                                                         "or drinks."),
+                          "price_change_pct": _nullable("number", "Price change in %, e.g. 5."),
+                          "supply_change_pct": _nullable("number", "% change in this product's "
+                                                                   "share of planned ingredient orders."),
+                          "extra_units": _nullable("number", "Buy ingredients now for this many "
+                                                             "extra units of the product."),
+                          "demand_shock_pct": _nullable("number", "Hypothetical demand change in %."),
+                          "demand_shock_scope": _nullable("string", "'product' (only this "
+                                                                    "product) or 'all'."),
+                          "marketing_change_pct": _nullable("number", "% change in marketing & "
+                                                                      "software spend."),
+                          "horizon_days": _nullable("integer", "7, 14 or 28 days.")}}},
+    {"name": "explain_profit_change",
+     "description": "Explain why operating profit changed between the last N days and the "
+                    "previous N days: revenue, each expense category and each product's revenue "
+                    "change (an accounting decomposition, not a causal claim).",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": ["period_days"],
+                      "properties": {"period_days": {"type": "integer", "enum": [28, 90, 365]}}}},
 ]
 
 

@@ -4,6 +4,12 @@
   python -m decisiondesk.messaging.worker run --once        # one poll + status refresh
   python -m decisiondesk.messaging.worker run               # poll every 4 s until Ctrl-C
   python -m decisiondesk.messaging.worker alerts            # scan risks, send opted-in alerts
+  python -m decisiondesk.messaging.worker scenario          # which scenario replies will use
+
+Only ONE process may answer messages: ``run`` and ``alerts`` take the poller lock
+(``messaging/shared.py``) and refuse to start while the dashboard's auto-check (or another
+worker) holds it. Replies use the scenario published from the dashboard's Scenario Lab /
+Messaging page, or the business's default scenario when nothing is published.
 
 Event source: the documented list-messages polling path (no public URL needed). Webhooks are
 supported by ``webhooks.py`` for deployments with a public HTTPS endpoint.
@@ -20,6 +26,7 @@ from ..agent.tools import BusinessSession
 from .gateway import PhotonGateway, PhotonUnavailable
 from .risk_signals import scan
 from .service import MessagingService, MessagingStore
+from .shared import PollerLock, describe_holder
 
 _SESSIONS: dict[str, BusinessSession] = {}
 
@@ -43,8 +50,18 @@ def main() -> None:
     r.add_argument("--once", action="store_true")
     r.add_argument("--interval", type=float, default=4.0)
     sub.add_parser("alerts")
+    sc = sub.add_parser("scenario")
+    sc.add_argument("--business", default="restaurant")
     args = parser.parse_args()
     svc = build_service()
+    if args.cmd == "scenario":
+        print(json.dumps(svc.scenario_source(args.business), indent=1))
+        return
+    lock = PollerLock("worker", ttl_s=3600)
+    if args.cmd in ("run", "alerts") and not lock.acquire():
+        raise SystemExit("Another messaging poller is active: " + describe_holder(lock.holder())
+                         + ". Stop it (or turn off the dashboard's auto-check) first, so two "
+                         "pollers never answer the same message.")
     try:
         if args.cmd == "status":
             print(json.dumps(svc.gateway.status(), indent=1, default=str))
@@ -57,6 +74,8 @@ def main() -> None:
                     print(sig.kind, "->", "sent" if rec else "not sent (consent/dedupe/pref)")
             return
         while True:
+            if not lock.heartbeat():
+                raise SystemExit("Lost the poller lock to " + describe_holder(lock.holder()))
             sent = svc.poll_once()
             svc.refresh_statuses()
             for rec in sent:
@@ -68,6 +87,8 @@ def main() -> None:
         raise SystemExit(f"Photon unavailable: {exc}") from None
     except KeyboardInterrupt:
         pass
+    finally:
+        lock.release()
 
 
 if __name__ == "__main__":

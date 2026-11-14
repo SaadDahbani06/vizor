@@ -229,7 +229,10 @@ class DecisionAgent:
 
 # ====================================================================== offline analyst
 def _money(x) -> str:
-    return "n/a" if x is None else f"${x:,.0f}"
+    """$1,234 / -$1,234 (the sign before the dollar sign, so the grounding check reads it)."""
+    if x is None:
+        return "n/a"
+    return f"-${abs(x):,.0f}" if round(x) < 0 else f"${x:,.0f}"
 
 
 class OfflinePlanner:
@@ -259,6 +262,9 @@ class OfflinePlanner:
         money = re.search(r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*(k)?", q, re.IGNORECASE)
         amount = None if not money else float(money.group(1).replace(",", "")) * (1000 if money.group(2) else 1)
         try:
+            routed = self._product_route(q, ql, pct, calls)
+            if routed is not None:
+                return routed
             if self.s.industry == "restaurant" and re.search(r"food|ingredient|supplier|cost", ql) and pct:
                 sign = -1 if re.search(r"decrease|fall|drop|lower", ql) else 1
                 out = self._call(calls, "evaluate_restaurant_actions",
@@ -309,8 +315,132 @@ class OfflinePlanner:
             "Offline analyst (rule-based, no language model). I can answer: business overview, "
             "four-week forecasts, economic indicators from FRED, cash-shortfall risk, restaurant "
             "what-ifs (food costs rising by a stated percent, demand becoming more "
-            "price-sensitive), inventory budgets (a stated dollar budget) and 'what should I "
-            "do?'. Set GEMINI_API_KEY for free-form questions.", "offline", calls)
+            "price-sensitive), inventory budgets (a stated dollar budget), 'what should I "
+            "do?', and for the demo restaurant: which product is most profitable, why profit "
+            "changed, what a product price change would do (e.g. 'what if burrito prices rise five "
+            "percent?' with a number) and "
+            "whether to buy more of a product's ingredients. Set GEMINI_API_KEY for free-form "
+            "questions.", "offline", calls)
+
+    # ---------------------------------------------------------------- product questions
+    PRODUCT_RE: ClassVar[str] = r"(taco|burrito|quesadilla|nacho|drink)s?"
+
+    def _product_route(self, q: str, ql: str, pct, calls) -> AgentReply | None:
+        if not getattr(self.s, "has_products", False):
+            if re.search(self.PRODUCT_RE + r"|which product|most profitable|best[- ]sell", ql):
+                out = self._call(calls, "get_product_performance", {"period_days": 28})
+                return AgentReply("Offline analyst. " + out.get("reason", "") + " Needed: "
+                                  + out.get("what_is_needed", ""), "offline", calls)
+            return None
+        prod = re.search(self.PRODUCT_RE, ql)
+        pid = (prod.group(1) + "s") if prod else None
+        down = bool(re.search(r"decreas|lower|cut|reduc|drop|fall|less", ql))
+        val = None if not pct else (-1 if down else 1) * abs(float(pct.group(1)))
+        if re.search(r"why .*profit|profit .*(drop|fall|fell|declin|down|change|up|rise|rose|grew)", ql):
+            out = self._call(calls, "explain_profit_change", {"period_days": 28})
+            return AgentReply(self._profit_change_text(out), "offline", calls)
+        if pid and val is not None and re.search(r"price|charge|cost more|menu", ql):
+            out = self._call(calls, "simulate_product_scenario",
+                             self._scn(pid, price_change_pct=val))
+            return AgentReply(self._product_scn_text(out), "offline", calls)
+        if pid and re.search(r"purchas|buy|order|ingredient|restock|supply|more stock|inventory", ql):
+            if val is not None:
+                out = self._call(calls, "simulate_product_scenario",
+                                 self._scn(pid, supply_change_pct=val))
+            else:
+                n = re.search(r"(\d[\d,]*)\s*(extra|more|additional)?\s*" + self.PRODUCT_RE, ql)
+                if n:  # a one-time purchase of a stated quantity
+                    out = self._call(calls, "simulate_product_scenario", self._scn(
+                        pid, extra_units=float(n.group(1).replace(",", "")), horizon_days=7))
+                else:  # raise this product's share of the planned orders by 25%
+                    out = self._call(calls, "simulate_product_scenario",
+                                     self._scn(pid, supply_change_pct=25.0))
+            return AgentReply(self._product_scn_text(out), "offline", calls)
+        if val is not None and re.search(r"demand|customers|traffic|sales (rise|fall|drop|increase|decrease)", ql):
+            out = self._call(calls, "simulate_product_scenario", self._scn(
+                pid or "tacos", demand_shock_pct=val, demand_shock_scope="product" if pid else "all"))
+            return AgentReply(self._product_scn_text(out), "offline", calls)
+        if val is not None and re.search(r"marketing|advertis", ql):
+            out = self._call(calls, "simulate_product_scenario",
+                             self._scn(pid or "tacos", marketing_change_pct=val))
+            return AgentReply(self._product_scn_text(out), "offline", calls)
+        if re.search(r"which product|most profitable|best[- ]sell|top (product|seller)|lowest margin|"
+                     r"products?\b.*(perform|margin|stock)|" + self.PRODUCT_RE, ql):
+            out = self._call(calls, "get_product_performance", {"period_days": 28})
+            return AgentReply(self._product_perf_text(out), "offline", calls)
+        return None
+
+    @staticmethod
+    def _scn(pid, **kw) -> dict:
+        base = {"product": pid, "price_change_pct": 0.0, "supply_change_pct": 0.0,
+                "extra_units": 0.0, "demand_shock_pct": 0.0, "demand_shock_scope": "product",
+                "marketing_change_pct": 0.0, "horizon_days": 28}
+        return base | kw
+
+    @staticmethod
+    def _product_perf_text(out) -> str:
+        if not out.get("available"):
+            return "Offline analyst. " + out["reason"]
+        lines = [(f"Offline analyst (rule-based, no language model). Five tracked products, {out['period']} "
+                 "(SYNTHETIC records):")]
+        for r in out["products"]:
+            lines.append(f"  {r['product']}: {r['units_sold']:,} units, revenue ${r['revenue']:,}, "
+                         f"gross profit ${r['gross_profit']:,} ({r['gross_margin_pct']}% gross margin); "
+                         f"forecast demand next 7 days {r['forecast_demand_next_7_days']:,} units; "
+                         f"stock covers {r['stock_days_of_supply']} days; stock-out risk "
+                         f"{r['stockout_risk_next_7_days_pct']}%.")
+        lines.append(f"Most profitable (gross profit): {out['most_profitable_by_gross_profit']}. "
+                     f"Best seller by revenue: {out['best_seller_by_revenue']}; most units: "
+                     f"{out['most_units_sold']}. Lowest gross margin: {out['lowest_gross_margin']}. "
+                     f"Highest stock-out risk: {out['highest_stockout_risk']}.")
+        lines.append("Gross profit is revenue minus ingredient cost (before labor, rent and other "
+                     "overhead). Demand forecasts are validated on synthetic history only; stock-out "
+                     "risk is simulated under the current ordering plan.")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _product_scn_text(out) -> str:
+        if not out.get("available"):
+            return "Offline analyst. " + out["reason"]
+        r, p, d, u = (out["revenue"], out["operating_profit"], out["selected_product_demand_units"],
+                      out["selected_product_units_sold"])
+        so = out["selected_product_stockout_risk_pct"]
+        lo, hi = p["change_90pct_range"]
+        a = out["assumptions"][0]
+        policy = ("Within the owner's approved limits." if out["within_owner_policy"] else
+                  "OUTSIDE the owner's approved limits: " + "; ".join(out["policy_violations"]) + ".")
+        return "\n".join([
+            "Offline analyst (rule-based, no language model).",
+            (f"Scenario: {out['scenario_text']}, next {out['horizon_days']} days "
+            f"({out['forecast_window'][0]} to {out['forecast_window'][1]}), versus the current plan."),
+            (f"Revenue {_money(r['baseline'])} -> {_money(r['scenario'])} (change {_money(r['change'])}); "
+            f"operating profit {_money(p['baseline'])} -> {_money(p['scenario'])} (change "
+            f"{_money(p['change'])}, 90% simulation range {_money(lo)} to {_money(hi)}; profit "
+            f"improves in {out['probability_profit_improves_pct']}% of simulated futures)."),
+            (f"Demand for the product {d['baseline']:,} -> {d['scenario']:,} units; units sold "
+            f"{u['baseline']:,} -> {u['scenario']:,}; stock-out risk {so['baseline']}% -> "
+            f"{so['scenario']}%. Operating cash flow change {_money(out['operating_cash_flow']['change'])}."),
+            policy, "Recommendation: " + out["recommendation"],
+            (f"Key assumption: {a['name']} {a['value']} (range {a['low']} to {a['high']}, "
+            f"{a['source']}). Simulated effects are assumptions, not proven causal effects. "
+            "Human approval required.")])
+
+    @staticmethod
+    def _profit_change_text(out) -> str:
+        pr = out["profit"]
+        lines = ["Offline analyst (rule-based, no language model).",
+                 (f"Operating profit {out['period']}: {_money(pr['current'])} versus "
+                 f"{_money(pr['previous'])} in the {out['comparison']} (change {_money(pr['change'])})."),
+                 "Largest effects on profit:"]
+        for d in out["drivers"][:5]:
+            lines.append(f"  {d['driver']}: {_money(d['previous'])} -> {_money(d['current'])} "
+                         f"(profit effect {_money(d['profit_effect'])})")
+        if out["products"]:
+            lines.append("Product revenue changes: " + "; ".join(
+                f"{x['product']} {_money(x['revenue_change'])} ({x['units_change']:+,} units)"
+                for x in sorted(out["products"], key=lambda x: -abs(x["revenue_change"]))))
+        lines.append(out["note"])
+        return "\n".join(lines)
 
     # ---------------------------------------------------------------- templates
     @staticmethod

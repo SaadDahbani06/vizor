@@ -373,6 +373,47 @@ def make_retail(seed: int = 2027, end: str = END_DATE, days: int = DAYS) -> Busi
     return BusinessDataset("retail", daily, bills, meta)
 
 
+def restaurant_cost_components(ds: BusinessDataset) -> pd.DataFrame:
+    """Accrual cost components of the demo restaurant, per day.
+
+    Recomputes the generator's own formulas (``make_restaurant`` is not changed):
+      variable_costs = food + packaging + card_fees
+      fixed_costs    = payroll + rent + utilities + insurance + equipment_loan
+                       + marketing_software + supplies_services
+    Food is the remainder of variable costs after the two exact formulas (it carries the
+    generator's daily noise). Sums reconcile with the dataset to the cent (tested)."""
+    if ds.metadata.get("key") != "restaurant":
+        raise ValueError("cost components are defined for the demo restaurant only")
+    d = ds.daily
+    dates = pd.DatetimeIndex(d["date"])
+    doy = dates.day_of_year.to_numpy()
+    season = 1 + 0.07 * np.sin(2 * np.pi * (doy - 60) / 365.25) + 0.04 * np.cos(4 * np.pi * doy / 365.25)
+    md = dates.days_in_month.to_numpy()
+    summer = dates.month.isin([6, 7, 8, 9])
+    loan = ds.bills.loc[ds.bills.category == "loan", "amount"].mean() if (ds.bills.category == "loan").any() else 1450
+    packaging = d["units_sold"].to_numpy() * 0.55
+    card_fees = d["revenue"].to_numpy() * 0.85 * 0.027
+    out = pd.DataFrame({
+        "date": dates,
+        "food": d["variable_costs"].to_numpy() - packaging - card_fees,
+        "packaging": packaging, "card_fees": card_fees,
+        "payroll": 13400 * (1 + 0.15 * (season - 1)) / 14,
+        "rent": 6600 / md, "utilities": np.where(summer, 1900 * 1.35, 1900) / md,
+        "insurance": np.full(len(d), 3150 / 91.25), "equipment_loan": loan / md,
+        "marketing_software": 1050 / md, "supplies_services": np.full(len(d), 1700 / 7)})
+    return out
+
+
+COST_LABELS = {
+    "food": "Ingredients (food)", "packaging": "Packaging", "card_fees": "Card processing fees",
+    "payroll": "Labor (payroll)", "rent": "Rent", "utilities": "Utilities",
+    "insurance": "Insurance", "equipment_loan": "Equipment loan payments",
+    "marketing_software": "Marketing & software", "supplies_services": "Supplies, repairs & services"}
+VARIABLE_COMPONENTS = ("food", "packaging", "card_fees")
+FIXED_COMPONENTS = ("payroll", "rent", "utilities", "insurance", "equipment_loan",
+                    "marketing_software", "supplies_services")
+
+
 DATASETS = {"restaurant": make_restaurant, "retail": make_retail}
 
 

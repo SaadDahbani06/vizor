@@ -35,6 +35,8 @@ def test_messaging_tab_simulator_round_trip(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
     assert not at.exception
+    at.radio(key="nav").set_value("Messaging").run()
+    assert not at.exception
     assert any("PHOTON_API_KEY is not set" in e.value for e in at.error)  # live mode, no key
     at.radio(key="msg_mode").set_value("Local simulator (no real messages)").run()
     assert not at.exception

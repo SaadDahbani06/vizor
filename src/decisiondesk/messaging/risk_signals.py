@@ -40,7 +40,10 @@ def _key(*parts) -> str:
 
 
 def _money(x) -> str:
-    return f"${x:,.0f}" if x is not None else "n/a"
+    """$1,234 / -$1,234 (the sign before the dollar sign, so the grounding check reads it)."""
+    if x is None:
+        return "n/a"
+    return f"-${abs(x):,.0f}" if round(x) < 0 else f"${x:,.0f}"
 
 
 def scan(session: BusinessSession) -> list[RiskSignal]:

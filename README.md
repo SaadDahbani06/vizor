@@ -4,34 +4,51 @@
 
 Organization uploads structured internal data → system selects external evidence where relevant → forecasts and tests scenarios → ranks feasible decisions → explains uncertainty and assumptions → (later) monitors and alerts.
 
-## Hackathon demo (Milestone 4.5: final release)
+## Hackathon demo (Milestone 5: dashboard and Scenario Lab)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt             # = pip install -e '.[dev,ml,ui,agent,messaging]'
 cp .env.example .env                        # optional keys: GEMINI_API_KEY, PHOTON_*, FRED_API_KEY, NESSIE_API_KEY
-python -m decisiondesk.precompute           # warm the validated forecast cache (about 2 min once)
-streamlit run app/streamlit_app.py          # overview, forecast, economy, decisions, analyst, alerts, messaging, banking
-python -m decisiondesk.messaging.worker run # answer iMessages from opted-in owners (Photon 2.0)
-python -m decisiondesk.product_demo         # both demo conversations end to end in the terminal
+python -m decisiondesk.precompute           # warm the validated forecast caches (a few minutes once)
+streamlit run app/streamlit_app.py          # http://localhost:8501
+# optional, in a second terminal: answer iMessages (only ONE poller may run; see below)
+python -m decisiondesk.messaging.worker run
 ```
 
-- **Business data:** realistic **synthetic** U.S. small businesses (`synthetic_v2`).
-- **Economic data:** **real** FRED observations, point-in-time.
+**Pages:**
+- **Overview:** what is happening now.
+- **Revenue & Operations:** why. Sections for revenue, products, inventory, profit & costs,
+  cash & obligations, and forecasts.
+- **Scenario Lab:** what happens if you change something. It is linkable, for example
+  `/?page=Scenario%20Lab&product=Tacos&price=5`.
+- **AI Analyst**, **Economy**, **Messaging**, and **Evidence & Data** (sources, model
+  validation, reconciliation, assumptions, Nessie banking, alerts).
+
+**What the data and numbers are:**
+- **Business data:** realistic **synthetic** U.S. small businesses (`synthetic_v2`). The demo
+  restaurant has a five-product layer (tacos, burritos, quesadillas, nachos, drinks) with recipes
+  and an ingredient ledger (`products.py`) that reconciles to the cent with the daily totals.
+- **Economic data:** **real** FRED observations, point-in-time. They are used as context and to
+  size stress tests, not as forecast inputs. Kwick365 powers the separate `us_demo` and
+  `us_validation` workflows, not the dashboard.
 - **Banking:** **simulated** Nessie records.
-- **Scenarios and effects:** user scenario changes are **hypothetical**; action effects are
-  **assumed**.
-- **The analyst:** Google Gemini (`GEMINI_MODEL`, default `gemini-3.8-flash`, manual function
-  calling over 10 tools) when `GEMINI_API_KEY` is set. If Gemini fails, a rule-based offline
-  analyst answers and the reply says so. Every number the analyst states is checked against
-  executed tool outputs.
-- **Messaging:** Photon 2.0 iMessage (shared line). It sends proactive risk alerts to opted-in
-  owners and holds a two-way conversation by text. There is a clearly labelled local simulator.
-  SMS is not provisioned.
-- **Verification and setup:**
-  - `docs/MILESTONE_4_5_RELEASE.md`: what ran live, Photon dashboard steps, and limitations.
-  - `docs/PRESENTATION.md`: the two-minute script.
-  - `docs/MILESTONE_4_PRODUCT_VERIFICATION.md`: earlier verification.
+- **Forecasts:** models chosen by back-testing in date order against baselines, including one
+  demand model per product. Ranges come from the models' own out-of-sample errors.
+- **Scenarios:** price, supply, demand and marketing changes are **simulated** against the
+  current plan. The effects (elasticity, substitution, marketing response) are **stated
+  assumptions** with ranges, never estimated causal effects.
+- **The analyst:** Google Gemini (13 tools, manual function calling) or a rule-based offline
+  analyst. Gemini runs in the background, so the dashboard never waits for it. Every number it
+  states must match a tool value *and* the concept it is said to be.
+- **Messaging:** Photon iMessage. The dashboard and the worker answer from the same explicitly
+  published scenario, and only one message poller can run at a time.
+
+**Further reading:**
+- `docs/MILESTONE_5.md`: what is ML, what is accounting and what is assumed, with measured
+  results.
+- `docs/PRESENTATION.md`: the two-minute script.
+- `docs/MILESTONE_4_5_RELEASE.md`: the Gemini and Photon setup.
 
 ## What is actually implemented now?
 
@@ -54,7 +71,10 @@ python -m decisiondesk.product_demo         # both demo conversations end to end
 - ✅ Real U.S. data (Milestone 3.5): Kwick365 independent-restaurant index connector (live, cached; REAL AGGREGATE), real-data leaderboard on daily orders per restaurant, with/without point-in-time FRED on identical windows (`python -m decisiondesk.us_validation kwick365`); see `docs/MILESTONE_3_5_US_VALIDATION.md`
 - ✅ Business profile confirmation (industry, U.S. state, objective, constraints), CSV/Excel column-role mapping, supported-analysis detection (`profile.py`); source-selection catalog with literal status (`sources.py`)
 - ✅ End-to-end restaurant demo: real FRED + Kwick365 context → selected-model forecasts → Milestone 3 decision engine (`python -m decisiondesk.us_demo restaurant --state TX --confirm`)
-- ✅ Tests: 138 offline/mocked pass (incl. 12 Gemini, 20 Photon messaging/webhook/simulator, 2 cache + Messaging-tab) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md` and `docs/MILESTONE_4_5_RELEASE.md`
+- ✅ Tests: 193 offline/mocked pass (Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
+- ✅ Milestone 5 product layer: five products, recipes, Mon/Thu ingredient ledger with rationing of shared ingredients, sell-out times and a demand estimate that corrects censored sales; reconciles with daily revenue and food cost (`products.py`)
+- ✅ Milestone 5 product demand forecasts (one per product, existing leaderboard) and the Scenario Lab engine: price, ingredient orders, extra purchase, demand shock, marketing; substitution; profit vs cash; uncertainty; sensitivity; price-policy check; ranked recommendation (`decision/product_scenario.py`)
+- ✅ Milestone 5 dashboard numbers (`dashboard.py`) and redesigned seven-page Streamlit interface (`app/streamlit_app.py`, `ui/`)
 - ❌ No real individual-business SALES history evaluated (none available); real AGGREGATE restaurant data evaluated (Kwick365); synthetic scores say nothing about real accuracy
 - ❌ Iowa store-level purchase validation and procurement demo: importer built and tested on a schema fixture, but BLOCKED until the dataset-1051 export is downloaded to `data/private/iowa_liquor/`
 - ❌ Calibrated cash-shortfall probability (needs ≥20 holdout windows)
@@ -86,6 +106,8 @@ See `docs/ARCHITECTURE_REVIEW.md` for the problems found and the build plan.
 | FRED/ALFRED series (CPI, food CPI, UNRATE, retail sales) | **Real published economic observations**, with vintage dates | Real inputs, but only useful if a real business history responds to them |
 | Kwick365 readings | **Real aggregate** of independent restaurants running KwickPOS (not a probability sample) | Only for the aggregate benchmark itself, labelled REAL_AGGREGATE_INDUSTRY |
 | Iowa Liquor Sales (dataset 1051) | **Real store-level purchases** (not customer sales), CC BY 4.0 | Procurement forecasts for that store only (not run yet: download needed) |
+| Product layer (5 products, recipes, ingredient ledger) | **Synthetic**, derived deterministically from the synthetic daily records | No. Tests software only |
+| Scenario Lab effects (product elasticities, substitution, marketing response) | **Assumptions** with stated ranges | No. They are not estimated |
 | Nessie sandbox records | **Synthetic banking records** in Capital One's simulator, generated from our synthetic restaurant | No. Demonstrates import/normalization only |
 
 ## Quick start (macOS / Linux, Python 3.11+)

@@ -286,7 +286,7 @@ def test_help_and_options_commands(tmp_path, base_session):
 
 # ------------------------------------------------------------------ alerts
 def grounded_signal(key="sig-1", kind="cash_shortfall"):
-    out = {"run_id": "run_1", "shortage": 0.42, "cash": 5000}
+    out = {"run_id": "run_1", "cash_shortage_probability": 0.42, "starting_cash": 5000}
     return RiskSignal(kind, "critical", "Cash", "42% of scenarios run out of cash with $5,000.",
                       key, [out])
 

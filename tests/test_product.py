@@ -324,6 +324,8 @@ def test_nessie_summary_tool_and_ui_display(nessie_fake, monkeypatch, restaurant
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
     assert not at.exception
+    at.radio(key="nav").set_value("Evidence & Data").run()
+    at.radio(key="seg_ev_section").set_value("Banking (Nessie)").run()
     at.button(key="bank_go").click().run()
     assert not at.exception
     texts = " ".join(x.value for x in at.markdown) + " ".join(w.value for w in at.warning)
@@ -340,12 +342,17 @@ def test_ui_runs_end_to_end_without_credentials(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
     assert not at.exception and "SYNTHETIC" in at.info[0].value
+    at.radio(key="nav").set_value("Scenario Lab").run()
     at.button(key="d_run").click().run()
     assert not at.exception and (at.success or at.warning)
+    at.radio(key="nav").set_value("AI Analyst").run()
     at.chat_input(key="chat_in").set_value("What should I do if my food costs increase 15%?").run()
     assert not at.exception and "Offline analyst" in at.chat_message[-1].markdown[0].value
     at.radio(key="source").set_value("Demo retailer (Columbus, OH)").run()
     assert not at.exception and "Maple Street Hardware" in at.info[0].value
+    at.radio(key="nav").set_value("Scenario Lab").run()
+    assert not at.exception
+    assert any("Product-level analytics need" in m.value for m in at.markdown)  # empty state
     at.button(key="d_run").click().run()
     assert not at.exception
 
