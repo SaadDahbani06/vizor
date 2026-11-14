@@ -1,5 +1,10 @@
 # Milestone 5.1: Monte Carlo uncertainty calibration (2026-11-14)
 
+> **Update (Milestone 5.2 audit):** a separate Scenario Lab bug (exploding substitution demand)
+> was fixed afterwards. Scenario Lab profit changes quoted below (for example tacos +5% +$410)
+> are superseded: tacos +5% is now +$286 (−$5 to +$557). See `docs/MILESTONE_5_2_AUDIT.md`.
+> The calibration results here are unaffected.
+
 Branch `milestone-5.1-calibration`, from `milestone-5-dashboard`. Every number below was produced
 by running the code on 2026-11-14 on the **synthetic** demo businesses. These results check the
 method; they say nothing about calibration on a real business.

@@ -1,86 +1,63 @@
-# Main Street Risk Desk: two-minute demo script (Milestone 5)
+# Main Street Risk Desk: two-minute demo script (verified 2026-11-14, Milestone 5.2)
 
-One presenter, the dashboard on a laptop at 1440 px or wider. Times are cumulative. Lines in
-*italics* are actions, not speech. The demo **never waits for a live Gemini reply**: live replies
-have taken 2–3 minutes.
+One presenter, the dashboard full-screen at 1440 px or wider. Every number below was produced by
+the code on branch `milestone-5.2-demo-readiness` (all models, warm cache). The demo never waits
+for a live Gemini reply: live replies took 2–3 minutes.
 
-## Before you go on stage (10 minutes earlier)
+## Setup, 10 minutes before
 
 ```bash
-source .venv/bin/activate
-python -m decisiondesk.precompute              # warm caches (about 2 s warm; a few minutes cold)
-streamlit run app/streamlit_app.py             # http://localhost:8501
+# 1. Stop any old processes: Ctrl-C the old messaging worker and old dashboards.
+cd ~/Desktop/main-street-decision-intelligence && source .venv/bin/activate
+git switch milestone-5.2-demo-readiness
+python -m decisiondesk.precompute                      # seconds when warm
+MSRD_LLM_PROVIDER=offline streamlit run app/streamlit_app.py
 ```
 
-1. **Open the pages once** in separate tabs, so nothing loads on stage:
-   - `http://localhost:8501/?page=Overview`
-   - `http://localhost:8501/?page=Revenue%20%26%20Operations&section=Products`
-   - `http://localhost:8501/?page=Scenario%20Lab&product=Tacos`
-2. **Pre-ask the analyst.** On **AI Analyst**, click "What happens if burrito prices increase by
-   5%?" now. With Gemini the answer arrives in the background in a few minutes, and the page
-   says so while it works. To guarantee an instant answer instead, start the app with
-   `MSRD_LLM_PROVIDER=offline`. The page then says "Offline analyst (rule-based…)", and you say
-   that too.
-3. **Optional iMessage.** Have the phone open on an already delivered Main Street Risk Desk
-   reply. Do not text live on stage.
+Use `MSRD_LLM_PROVIDER=offline` on stage: the answers come instantly from the same tools. To show
+Gemini, start without it and pre-ask the question 5 minutes earlier; the answer waits in the chat.
+
+1. Open `http://localhost:8501/?page=Overview` and leave the period on **Month to date**.
+2. Open each page once, so nothing loads on stage.
+3. Return to Overview.
 
 ## Script
 
-**0:00–0:30 · What's happening now** *(Overview)*
+| Time | Click | Say |
+|---|---|---|
+| 0:00 | Overview, top cards | "Lone Star Taqueria is a fictional Austin restaurant with three years of synthetic records, labelled on screen. Month to date: revenue **$36,704**, up 7.1% on the same days in October. Operating profit **$3,444**, a 9.4% margin. Cash **$168,169** from the ledger. Expenses **$33,260**. Ingredients worth **$2,885** on hand. Supplier bills **$24,931** due in the next two weeks." |
+| 0:15 | Scroll to the charts | "Which products earn the money, where it goes (labor is the biggest cost), and inventory health: physical stock is the bar, predicted demand the black tick." |
+| 0:25 | Click **Revenue details →**, then **Products** | "Five products. Tacos: $12.75, $3.26 of ingredients, a 74.6% margin, the most gross profit. Each product's demand is forecast by a model chosen by testing it on past windows it had never seen. For tacos the error is **11.3 a day, versus 14.9** for 'same as last week'. Demand isn't sales: on sell-out days we estimate the hidden demand from the sell-out time." |
+| 0:50 | Click **Scenario Lab**; drag price to **+8%** | "What if I raise taco prices? At 8% it's flagged: the owner allows at most 5%. We show it, but never recommend it." |
+| 1:00 | Drag price to **+5%** | "At 5%, taco demand drops from **1,514 to 1,431**, so revenue barely moves, about +$32; it doesn't rise 5%. Some customers switch to burritos. Profit rises **+$286** over 28 days. The range is **−$5 to +$557**, and profit improves in **95%** of 1,000 simulated futures." |
+| 1:20 | Point at **Sensitivity** in the recommendation | "And honestly: if customers are at the most price-sensitive end of our assumed range, it turns to **−$72**. The app says so instead of hiding it." |
+| 1:30 | Drag **ingredient orders** to **−40%** | "Cut the taco ingredient orders and customers still want tacos, but the kitchen can't make them. Stock-out risk goes from **20% to 62%** and profit falls to **−$539** versus the plan. Cash and profit move differently because suppliers are paid a week later." |
+| 1:40 | Click **Reset**, set **+5%**, click **Ask the AI analyst about this →**, then **Ask** | "The AI analyst explains the same numbers: +$286, −$5 to +$557. It calls our tools and never calculates anything itself. Every number it says is checked against the tool output, including *what* the number is supposed to be." |
+| 1:55 | — | "Ranges are checked on past data the model never saw: 22 of 23 past 28-day revenue totals fell inside. The data is synthetic and the price effects are assumptions; testing on a real restaurant is next." |
 
-"This is Lone Star Taqueria, a fictional Austin restaurant. Every number comes from three years
-of synthetic records, labelled as such. Month to date: revenue, operating profit and margin
-against the same days last month, cash from the ledger, expenses, ingredient stock at cost, and
-supplier bills due in the next two weeks. Below: revenue and profit over time, which products
-earn the money, where it goes (labor is the biggest cost), and inventory health. Physical stock
-is the bar, predicted demand is the black tick."
+## If asked
 
-*Click "Revenue details →".*
+- **"Why does the Overview recommend cutting discretionary spending, but the Lab recommends
+  tacos +5%?"** They answer different questions. The business-wide engine compares levers across
+  the whole restaurant (+$958). The Lab compares actions for one product.
+- **"Why do the four main dishes show the same stock-out risk?"** They share tortillas, meat and
+  cheese, so when one runs short, all four do.
+- **"Is the 95% a probability?"** It's a frequency across simulated futures under our assumptions,
+  not a validated real-world probability.
 
-**0:30–1:00 · Why** *(Revenue & Operations → Products)*
+## Fallbacks
 
-"Five products. Tacos make the most gross profit; nachos have the lowest margin. Demand and sales
-are not the same thing: when an ingredient runs out, sales are capped, so we estimate demand from
-the point-of-sale sell-out time. Each product's demand forecast is a model chosen by testing it
-on past data in date order against simple baselines; for tacos the error is 11 a day versus 15
-for 'same day last week'. And because tacos, burritos and nachos share tortillas and meat, a
-shortage in one hits all of them."
-
-*Click the Scenario Lab tab.*
-
-**1:00–1:45 · What if** *(Scenario Lab)*
-
-"Let's raise taco prices." *Drag the price to +8%.* "It's flagged: the owner allows at most 5%,
-so we show it but never recommend it." *Set it to +5%.* "Demand falls, so revenue does not rise
-5%. Some customers switch to burritos, and profit rises by about $410 over 28 days. The range
-comes from 1,000 simulated futures, and the price sensitivity is an assumption we state and
-stress-test." *Drag ingredient orders to −40%.* "Now demand exceeds what the stock allows, stock-out risk
-jumps, profit falls. Cash and profit move differently because ingredients are paid a week later.
-The recommendation below comes from the same simulations, with the ways it could reverse."
-
-**1:45–2:00 · Explain** *(AI Analyst, pre-asked answer)*
-
-"The AI analyst explains the same numbers. It calls these tools and never computes anything
-itself, and every number it states is checked against the tool output, including what the number
-is supposed to mean. The same answers come to the owner by iMessage." *Optionally hold up the
-phone with the delivered reply.* "It's synthetic data and assumed effects; validating it on a
-real restaurant is the next step."
-
-## If something fails on stage
-
-- **Gemini is slow or failing.** Use the pre-asked answer, or say: "the language model is slow
-  today, so the rule-based analyst answers from the same tools." Start the app with
-  `MSRD_LLM_PROVIDER=offline` to guarantee it.
-- **A page is slow the first time.** The caches were not warmed: run
+- **The analyst is slow or failing:** use the offline mode (above). Its replies say "Offline
+  analyst (rule-based…)"; say that out loud.
+- **Something loads slowly the first time:** the caches were cold. Run
   `python -m decisiondesk.precompute`.
-- **iMessage.** Only show an already delivered message. Delivery counts only when Photon reports
-  `delivered`.
+- **iMessage:** only show a reply already delivered on the phone. Never text live on stage.
 
 ## Not to say
 
-- Do not call any accuracy "real-world": the forecasting scores are on synthetic history.
-- Do not call the ranges "calibrated probabilities". Say: "we checked the 80% ranges on past
-  forecast windows they had never seen: 22 of 23 past 28-day revenue totals fell inside, so they
-  are on the cautious side." Stock-out and cash-shortfall percentages are simulation frequencies.
-- Do not call the effects causal: price, substitution and marketing effects are assumptions.
-- Do not say "in under a minute" for text replies.
+- Don't call accuracy "real-world": all scores come from synthetic history.
+- Don't call effects causal: price sensitivity, substitution and marketing response are
+  assumptions.
+- Don't call the ranges "calibrated probabilities". They were checked on synthetic past windows
+  and are on the cautious side (about 90% coverage for 80% ranges).
+- Don't say "in under a minute" for text replies.

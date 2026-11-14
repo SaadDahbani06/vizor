@@ -98,6 +98,20 @@ def test_demand_response_follows_constant_elasticity(ctx):
     np.testing.assert_allclose(pinned.demand[:, :, TACO], base.demand[:, :, TACO] * 1.10 ** -0.6)
 
 
+def test_substitution_conserves_demand_and_never_explodes(ctx):
+    """Regression (found in the Milestone 5.2 audit): shares of the other dishes were computed
+    from unclipped forecast paths, so near-zero or negative days (past closures in the borrowed
+    errors) produced absurd switching demand (an average of 149 million burritos)."""
+    _, base, scen, c = run(ctx, price_change_pct=5)
+    lost = (base.demand[:, :, TACO] - scen.demand[:, :, TACO]).sum()
+    others = [PRODUCT_IDS.index(p) for p in MAINS if p != "tacos"]
+    gained = (scen.demand[:, :, others] - base.demand[:, :, others]).sum()
+    assert 0.08 * lost <= gained <= 0.52 * lost                 # within the 10-50% switching range
+    assert scen.demand[:, :, others].max() <= base.demand[:, :, others].max() * 1.5 + 50
+    assert np.all(scen.demand >= 0) and np.all(base.demand >= 0)
+    assert c["stockout_risk"]["scenario"] <= c["stockout_risk"]["baseline"] + 0.02  # fewer tacos wanted
+
+
 def test_price_cut_raises_demand(ctx):
     _, _, _, c = run(ctx, price_change_pct=-10)
     assert c["demand_units"]["change"] > 0 and c["new_price"] < c["current_price"]

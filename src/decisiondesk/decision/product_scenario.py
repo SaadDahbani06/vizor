@@ -279,7 +279,9 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
     fixed_levels = fixed_levels or {}
     H, n, P, _K = sc.horizon_days, ctx.n_sims, len(PRODUCT_IDS), len(INGREDIENT_IDS)
     i_sel = PRODUCT_IDS.index(sc.product_id)
-    D0 = ctx.base_demand()[:, :H, :].copy()
+    # Demand cannot be negative. Forecast + borrowed historical error can be (e.g. a past closed
+    # day), so clip BEFORE any effect is applied; the baseline itself is unchanged by this.
+    D0 = np.maximum(ctx.base_demand()[:, :H, :], 0.0)
     D = D0.copy()
     dates = ctx.bundle.targets[f"demand_{PRODUCT_IDS[0]}"].dates[:H]
     sub = _draw(ctx, SUBSTITUTION, fixed_levels.get("substitution"))[:, None]       # n x 1
@@ -295,7 +297,10 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
         if sc.product_id in MAINS:
             others = [j for j in MAIN_IDX if j != i_sel]
             w = D0[:, :, others]
-            w = w / np.maximum(w.sum(axis=-1, keepdims=True), 1e-9)
+            tot = w.sum(axis=-1, keepdims=True)
+            # Split switching demand by the other dishes' shares; on a day with no demand for
+            # them (e.g. closed) nobody switches. Shares are in [0, 1] and sum to 1 (or 0).
+            w = np.divide(w, tot, out=np.zeros_like(w), where=tot > 1e-9)
             D[:, :, others] += (-sub * delta)[:, :, None] * w
     if sc.demand_shock_pct:
         mult = 1 + sc.demand_shock_pct / 100

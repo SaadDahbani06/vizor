@@ -99,6 +99,19 @@ def test_publishing_the_lab_scenario_for_imessage(at, tmp_path):
     assert "Published v1" in md(at) and "Scenario Lab: Tacos price +3%" in md(at)
 
 
+def test_scenario_lab_question_reaches_the_analyst(at):
+    """Regression (Milestone 5.2 audit): the suggested question vanished before its click."""
+    at.radio(key="nav").set_value("Scenario Lab").run()
+    at.slider(key="sl_price").set_value(5.0).run()
+    at.button(key="go_analyst").click().run()
+    assert at.radio(key="nav").value == "AI Analyst"
+    at.button(key="ask_prefill").click().run()
+    assert not at.exception
+    reply = at.chat_message[-1].markdown[0].value
+    assert "Tacos price +5%" in reply and "grounded: True" in reply
+    assert "analyst_prefill" not in at.session_state
+
+
 def test_analyst_suggestions_answer_offline(at):
     at.radio(key="nav").set_value("AI Analyst").run()
     at.button(key="suggest_1").click().run()

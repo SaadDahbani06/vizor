@@ -260,13 +260,14 @@ def page_overview() -> None:
             df["share_pct"] = df["revenue"] / df["revenue"].sum() * 100
             df["label"] = [f"{u:,.0f} units" if pd.notna(u) else "sides, add-ons" for u in df["units_sold"]]
             st.altair_chart(charts.product_revenue(df), width="stretch")
-            st.caption("Five tracked products plus 'other items' (sides, add-ons, desserts); together "
-                       "they equal total revenue.")
+            st.caption(f"Period: {k['period_label']} (the period selected above). Five tracked products "
+                       "plus 'other items' (sides, add-ons, desserts); together they equal total revenue.")
     with c2, st.container(key="panel_exp"):
         st.markdown("#### Expense breakdown " + T.origin("observed"), unsafe_allow_html=True)
         e = dash.expense_breakdown(s, period)
         e["pct_label"] = e["share_pct"].map(lambda v: f"{v:.0f}%")
         st.altair_chart(charts.expense_bars(e), width="stretch")
+        st.caption(f"Period: {k['period_label']}. Accrual expenses; they add up to Total expenses above.")
     c3, c4 = st.columns([1, 1])
     with c3, st.container(key="panel_inv"):
         st.markdown("#### Inventory health " + T.origin("simulated"), unsafe_allow_html=True)
@@ -283,6 +284,7 @@ def page_overview() -> None:
                        "the history to check it).")
     with c4, st.container(key="panel_bi"):
         st.markdown("#### Business intelligence")
+        st.caption("Always the last 28 days (a full four weeks, so every weekday counts equally).")
         if ctx is None:
             empty_state("Product insights are unavailable.")
         else:
@@ -869,7 +871,9 @@ def business_wide_actions() -> None:
     st.markdown("### Business-wide actions — decision engine " + T.origin("simulated"), unsafe_allow_html=True)
     st.caption("Scenario changes are HYPOTHETICAL; action effects are modeled assumptions, not "
                "proven causal effects. Shares are frequencies across simulated scenarios, not "
-               "guarantees.")
+               "guarantees. This engine forecasts the whole business with one revenue model and "
+               "one cost model, so its 'do nothing' profit differs by a few percent from the "
+               "product-level plan above: two models of the same future, both shown honestly.")
     if s.industry == "restaurant":
         c1, c2, c4, c5 = st.columns(4)
         food = c1.slider("Food-cost change (%)", -10.0, 30.0, float(s.state.food_cost_change_pct), 1.0, key="d_food")
@@ -983,10 +987,11 @@ def page_analyst() -> None:
         st.info(f"Gemini is working on “{p['q']}” ({time.time() - p['t0']:.0f} s). You can use other "
                 "pages meanwhile; the answer appears here when it is ready.")
     waiting()
-    pre = st.session_state.pop("analyst_prefill", None)
+    pre = st.session_state.get("analyst_prefill")  # kept until asked: popping it here lost the click
     if pre:
         st.info(f"Suggested from the Scenario Lab: “{pre}” — click below to ask.")
-        if st.button(f"Ask: {pre}", key="ask_prefill"):
+        if st.button(f"Ask: {pre}", key="ask_prefill", disabled=bool(pending)):
+            st.session_state.pop("analyst_prefill", None)
             _ask(pre)
             st.rerun()
     q = st.chat_input("Ask about forecasts, products, risks or decisions", key="chat_in",

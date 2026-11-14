@@ -48,6 +48,7 @@ python -m decisiondesk.messaging.worker run
 - `docs/MILESTONE_5.md`: what is ML, what is accounting and what is assumed, with measured
   results.
 - `docs/MILESTONE_5_1_CALIBRATION.md`: how the uncertainty ranges were checked and fixed.
+- `docs/MILESTONE_5_2_AUDIT.md`: the demo-readiness audit, bugs fixed and demo risks.
 - `docs/PRESENTATION.md`: the two-minute script.
 - `docs/MILESTONE_4_5_RELEASE.md`: the Gemini and Photon setup.
 
@@ -73,7 +74,8 @@ python -m decisiondesk.messaging.worker run
 - ✅ Business profile confirmation (industry, U.S. state, objective, constraints), CSV/Excel column-role mapping, supported-analysis detection (`profile.py`); source-selection catalog with literal status (`sources.py`)
 - ✅ End-to-end restaurant demo: real FRED + Kwick365 context → selected-model forecasts → Milestone 3 decision engine (`python -m decisiondesk.us_demo restaurant --state TX --confirm`)
 - ✅ Milestone 5.1 uncertainty calibration: Monte Carlo paths replay whole historical out-of-sample error windows (weekly blocks made multi-week totals too narrow: 68% vs 80% target); chronological out-of-sample check of every displayed range, labelled on screen (`calibration.py`, `docs/MILESTONE_5_1_CALIBRATION.md`)
-- ✅ Tests: 206 offline/mocked pass (Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
+- ✅ Milestone 5.2 audit: fixed exploding substitution demand in the Scenario Lab and a lost analyst click; see `docs/MILESTONE_5_2_AUDIT.md`
+- ✅ Tests: 208 offline/mocked pass (Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
 - ✅ Milestone 5 product layer: five products, recipes, Mon/Thu ingredient ledger with rationing of shared ingredients, sell-out times and a demand estimate that corrects censored sales; reconciles with daily revenue and food cost (`products.py`)
 - ✅ Milestone 5 product demand forecasts (one per product, existing leaderboard) and the Scenario Lab engine: price, ingredient orders, extra purchase, demand shock, marketing; substitution; profit vs cash; uncertainty; sensitivity; price-policy check; ranked recommendation (`decision/product_scenario.py`)
 - ✅ Milestone 5 dashboard numbers (`dashboard.py`) and redesigned seven-page Streamlit interface (`app/streamlit_app.py`, `ui/`)
