@@ -29,6 +29,11 @@ COST_RATIO_PTS = 1.5          # ingredient cost share of sales up this many poin
 MAX_ALERTS = 5
 WEEKS = 4
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+# Notification levels (Milestone 6): routine = dashboard and optional daily briefing only;
+# important = may be texted to owners who opted in to important alerts; decision_needed = may be
+# texted to owners who opted in to alerts, with DETAILS / OPTIONS / STOP replies.
+LEVELS = {"low_stock": "decision_needed", "cash": "decision_needed", "stockout_risk": "important",
+          "cost_increase": "important", "sales_decline": "routine", "product_mix": "routine", "bills": "routine"}
 PLAIN_ASSUMPTION = {"elasticity": "How strongly customers react to price",
                     "substitution": "Share of customers who switch to another dish when one sells out",
                     "marketing": "How much extra business marketing brings in"}
@@ -56,8 +61,8 @@ def _same_weekday_baseline(frame: pd.DataFrame, day: pd.Timestamp, cols: list[st
 
 
 def _alert(kind, severity, title, detail, basis, next_step, page=None, product=None) -> dict:
-    return {"kind": kind, "severity": severity, "title": title, "detail": detail, "basis": basis,
-            "next_step": next_step, "page": page, "product": product}
+    return {"kind": kind, "severity": severity, "level": LEVELS.get(kind, "routine"), "title": title,
+            "detail": detail, "basis": basis, "next_step": next_step, "page": page, "product": product}
 
 
 def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> dict:

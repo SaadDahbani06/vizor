@@ -26,4 +26,5 @@ def _no_live_credentials(monkeypatch, tmp_path):
     monkeypatch.setenv("MSRD_MESSAGING_SIM_STATE", str(tmp_path / "messaging_sim.json"))
     monkeypatch.setenv("MSRD_SCENARIO_STATE", str(tmp_path / "published_scenario.json"))
     monkeypatch.setenv("MSRD_POLLER_LOCK", str(tmp_path / "messaging_poller.lock"))
+    monkeypatch.setenv("MSRD_DECISION_LOG", str(tmp_path / "decision_log.json"))
     yield

@@ -15,7 +15,7 @@ def finish(chart, height: int = 280):
     return (chart.properties(height=height, background=CARD)
             .configure_view(stroke=None)
             .configure_axis(labelFont=FONT, titleFont=FONT, labelColor=MUTED, titleColor=MUTED,
-                            gridColor=GRID, domainColor="#CFCEC8", tickColor="#CFCEC8", labelFontSize=11,
+                            gridColor=GRID, domainColor="#141414", tickColor="#141414", labelFontSize=11,
                             titleFontSize=11, titleFontWeight=600)
             .configure_legend(labelFont=FONT, titleFont=FONT, orient="top", title=None,
                               labelFontSize=12, symbolStrokeWidth=3)
@@ -60,11 +60,11 @@ def line_hover(wide: pd.DataFrame, series: dict[str, str], *, colors: dict[str, 
     return finish(ch, height)
 
 
-def sparkline(df: pd.DataFrame, col: str, color: str = COBALT):
+def sparkline(df: pd.DataFrame, col: str, color: str = COBALT, background: str = CARD):
     ch = alt.Chart(df).mark_area(line={"color": color, "strokeWidth": 2}, color=color, opacity=0.12).encode(
         x=alt.X("date:T", axis=None), y=alt.Y(f"{col}:Q", axis=None, scale=alt.Scale(zero=False)),
         tooltip=[alt.Tooltip("date:T", format="%b %d"), alt.Tooltip(f"{col}:Q", format="$,.0f")])
-    return ch.properties(height=48, background=CARD).configure_view(stroke=None)
+    return ch.properties(height=48, background=background).configure_view(stroke=None)
 
 
 def product_revenue(df: pd.DataFrame, height: int = 280):
@@ -73,7 +73,8 @@ def product_revenue(df: pd.DataFrame, height: int = 280):
     base = alt.Chart(df).encode(y=alt.Y("product:N", sort=order, title=None,
                                         axis=alt.Axis(labelFontWeight=600, labelColor=INK)))
     bars = base.mark_bar(cornerRadiusEnd=3, height=22).encode(
-        x=alt.X("revenue:Q", axis=_money_axis(), title=None),
+        x=alt.X("revenue:Q", axis=_money_axis(), title=None,
+                scale=alt.Scale(domain=[0, float(df["revenue"].max()) * 1.38])),
         color=alt.Color("product:N", scale=alt.Scale(domain=list(PRODUCT_COLORS),
                                                      range=list(PRODUCT_COLORS.values())), legend=None),
         tooltip=[alt.Tooltip("product:N", title="Product"), alt.Tooltip("revenue:Q", format="$,.0f", title="Revenue"),

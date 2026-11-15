@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from dataclasses import dataclass, field
 from typing import ClassVar
 
@@ -28,6 +29,12 @@ from .grounding import ungrounded_numbers
 from .tools import TOOL_SCHEMAS, BusinessSession, run_tool
 
 MODEL = os.getenv("MSRD_AGENT_MODEL", "claude-opus-5-5")
+ANSWER_DEADLINE_S = float(os.getenv("MSRD_ANSWER_DEADLINE_S", "40"))
+# Routing: "fast" = verified fast answers and deterministic engines first, a language model only for
+# open questions (default); "llm" = always the language model's tool loop (used by provider tests).
+EXPLAIN_TOOLS = {"simulate_product_scenario", "evaluate_restaurant_actions", "evaluate_inventory_policies",
+                 "explain_profit_change", "get_daily_briefing", "get_local_market_prices",
+                 "get_product_performance", "assess_cash_risk", "forecast_business"}
 MAX_TOOL_ROUNDS = 8
 
 SYSTEM_PROMPT = """You are "Your Financial Analyst" inside Main Street Risk Desk, a decision \
@@ -74,6 +81,8 @@ class AgentReply:
     retried: bool = False
     fallback_reason: str | None = None
     notice: str = ""  # system notice (e.g. provider fallback); not analysis, not grounding-checked
+    path: str = ""    # fast | engine | engine+gemini | gemini | claude | help (how it was answered)
+    elapsed_s: float = 0.0
 
 
 CHANNEL_NOTES = {
@@ -127,6 +136,8 @@ class DecisionAgent:
         self.user_texts: list[str] = []
         self.planner = OfflinePlanner(session)
         self.last_fallback: str | None = None
+        self.routing = os.getenv("MSRD_ROUTING", "fast")
+        self.explain = os.getenv("MSRD_GEMINI_EXPLAIN", "1") == "1"
 
     @property
     def label(self) -> str:
@@ -136,18 +147,30 @@ class DecisionAgent:
     def ask(self, question: str, context: dict | None = None) -> AgentReply:
         """``context``: optional dashboard context, e.g. {"page": "Decision Lab", "product": "tacos"}.
         It steers which product a follow-up refers to; it never supplies numbers."""
+        t0 = time.monotonic()
+        deadline = t0 + ANSWER_DEADLINE_S
         self.user_texts.append(question)
         self.planner.context = context or {}
-        if self.mode == "offline":
+        reply = self._route(question, context, deadline) if self.routing == "fast" else None
+        if reply is not None:
+            pass
+        elif self.mode == "offline":
             reply = self._offline(question)
         elif self.mode == "gemini":
             try:
-                reply = self._ask_gemini(_with_context(question, context))
+                reply = self._ask_gemini(_with_context(question, context), deadline)
             except Exception as exc:  # noqa: BLE001 - any provider failure must degrade, not crash
                 from .gemini import GeminiUnavailable
                 reason = str(exc) if isinstance(exc, GeminiUnavailable) else type(exc).__name__
                 self.last_fallback = reason
                 reply = self._offline(question)
+                if reply.path == "help":  # never leave the owner with a menu of commands
+                    calls: list[dict] = []
+                    k = self.planner._call(calls, "get_key_numbers", {})
+                    self.tool_outputs.append(k)
+                    reply = AgentReply("I couldn't reach the AI model for a free-form answer just now, so here "
+                                       "are your key numbers.\n" + self.planner._fast_text("month", "", k) + "\n"
+                                       + self.planner._fast_text("yesterday", "", k), "offline", calls, path="fast")
                 reply.fallback_reason = reason
                 reply.notice = f"(Gemini unavailable: {reason}. Answered by the offline analyst.)"
         else:
@@ -165,6 +188,35 @@ class DecisionAgent:
                            + ", ".join(bad) + ". Treat them as unreliable.")
         if reply.notice:
             reply.text = reply.notice + "\n" + reply.text
+        reply.elapsed_s = round(time.monotonic() - t0, 3)
+        return reply
+
+    def _route(self, question: str, context: dict | None, deadline: float) -> AgentReply | None:
+        """Verified fast answers and deterministic engines first. Returns None when the question
+        needs the language model (open questions the rule-based analyst does not recognize)."""
+        reply = self.planner.fast(question)
+        if reply is None:
+            planned = self.planner.answer(question)
+            if planned.path == "help" and self.mode in ("gemini", "claude"):
+                return None
+            reply = planned
+            reply.path = reply.path or "engine"
+        else:
+            reply.path = "fast"
+        self.tool_outputs += [c["output"] for c in reply.tool_calls if "output" in c]
+        if (self.mode == "gemini" and self.explain and reply.path == "engine"
+                and {c["name"] for c in reply.tool_calls} & EXPLAIN_TOOLS):
+            try:
+                outs = [c["output"] for c in reply.tool_calls if "output" in c]
+                text = self.gemini.explain(_with_context(question, context), outs, reply.text, deadline)
+                if not ungrounded_numbers(text, self.tool_outputs, self.user_texts):
+                    return AgentReply(text, "gemini", reply.tool_calls, path="engine+gemini")
+                reply.fallback_reason = "explanation had unverified numbers; showing the calculation"
+            except Exception as exc:  # noqa: BLE001 - the verified engine answer is still complete
+                self.last_fallback = str(exc)
+                reply.fallback_reason = str(exc)
+        elif self.gemini is not None:
+            self.gemini.remember(question, reply.text)
         return reply
 
     def _offline(self, question: str) -> AgentReply:
@@ -173,10 +225,10 @@ class DecisionAgent:
         return reply
 
     # ------------------------------------------------------------------ Gemini mode
-    def _ask_gemini(self, question: str) -> AgentReply:
+    def _ask_gemini(self, question: str, deadline: float | None = None) -> AgentReply:
         self.gemini.add_user_text(question)
-        text, calls = self.gemini.run(self.tool_outputs)
-        return AgentReply(text, "gemini", calls)
+        text, calls = self.gemini.run(self.tool_outputs, deadline)
+        return AgentReply(text, "gemini", calls, path="gemini")
 
     # ------------------------------------------------------------------ Claude mode
     def _create(self):
@@ -291,6 +343,84 @@ class OfflinePlanner:
              "drink": "drinks"}.get(p, p)
         return p or None
 
+    # ---------------------------------------------------------------- fast facts
+    def fast(self, q: str) -> AgentReply | None:
+        """Instant answers to the most common factual questions from verified records (one cached
+        tool call, no simulation, no language model). None when the question is not one of them."""
+        ql = q.lower().strip()
+        if re.search(r"\d\s*%|percent|what if|instead|safer|should i|why|forecast|next (week|month)|"
+                     r"outlook|run out|predict|compare|competitor|nearby", ql):
+            return None
+        intents = [
+            ("yesterday", r"yesterday|last night"),
+            ("cash", r"how much cash|cash (do|have|on hand|balance|in the bank)|our cash|cash position"),
+            ("bills", r"bills?\b.*\b(due|coming|this week)|what do (we|i) owe|upcoming (bills|payments)"),
+            ("best", (r"sold the most|best[- ]sell|most popular|top (seller|product|item)|sell(s|ing)? the most|"
+                     r"most (orders|units)")),
+            ("price", (r"(price of|price for|how much (do|does) (we|i) charge|how much (is|are)|current|what'?s (our|my|the)?)"
+                      r".*\b(taco|burrito|quesadilla|nacho|drink)s?\b|\b(taco|burrito|quesadilla|nacho|drink)s?\b.*\bprices?\b")),
+            ("month", (r"this month|so far|month to date|\bmtd\b|how (are|is) (we|my business|business) doing|"
+                      r"how'?s business")),
+        ]
+        intent = next((name for name, rx in intents if re.search(rx, ql)), None)
+        if intent is None:
+            return None
+        if intent == "price" and not getattr(self.s, "has_products", False):
+            return None
+        if intent == "best" and not getattr(self.s, "has_products", False):
+            return None
+        calls: list[dict] = []
+        k = self._call(calls, "get_key_numbers", {})
+        return AgentReply(self._fast_text(intent, ql, k), "offline", calls)
+
+    def _fast_text(self, intent: str, ql: str, k: dict) -> str:
+        y, m, c = k["yesterday"], k["month_to_date"], k["cash"]
+        if intent == "yesterday":
+            chg = y["revenue_change_vs_typical_pct"]
+            rel = ("about the same as" if chg is None or abs(chg) < 3 else
+                   f"{abs(chg):.0f}% {'below' if chg < 0 else 'above'}")
+            text = (f"Yesterday ({y['weekday']} {y['date']}) sales were **{_money(y['revenue'])}**, {rel} a typical "
+                    f"{y['weekday']} (typical revenue {_money(y['typical_same_weekday_revenue'])}). Operating profit "
+                    f"was {_money(y['operating_profit'])}.")
+            if y.get("customers") is not None:
+                text += f" Customers: {y['customers']}."
+            return text + " These are recorded figures from your records."
+        if intent == "cash":
+            text = f"Cash on hand: **{_money(c['balance'])}** at the end of {y['date']}."
+            b = k.get("bills_due_7_days")
+            if b:
+                text += (f" Bills due in the next 7 days: {_money(b['total'])} ({b['count']} bills), so cash "
+                         f"{'covers' if (c['balance'] or 0) >= b['total'] else 'does NOT cover'} them.")
+            return text + " For the 4-week outlook, ask “What's our cash outlook?”."
+        if intent == "bills":
+            b = k.get("bills_due_7_days")
+            if not b:
+                return "There is no bill schedule in this data."
+            return (f"{b['count']} bills are due in the next 7 days, {_money(b['total'])} in total. Unpaid "
+                    f"supplier invoices: {_money(b['unpaid_supplier_invoices'])}. Cash on hand: "
+                    f"{_money(c['balance'])}.")
+        if intent == "best":
+            ps = sorted(k["products_last_28_days"], key=lambda r: -r["revenue"])
+            top = ps[0]
+            units = max(ps, key=lambda r: r["units_sold"])
+            text = (f"Over the last 28 days, **{top['product']}** brought in the most sales: revenue "
+                    f"{_money(top['revenue'])} from {top['units_sold']:,} orders sold.")
+            if units["product"] != top["product"]:
+                text += (f" {units['product']} sold the most units ({units['units_sold']:,} orders sold), at a "
+                         f"lower price.")
+            return text
+        if intent == "price":
+            prod = re.search(r"(taco|burrito|quesadilla|nacho|drink)s?", ql).group(1) + "s"
+            r = next(x for x in k["products_last_28_days"] if x["product"].lower() == prod)
+            return (f"Your current {r['product'].lower().rstrip('s')} price is **${r['price']:.2f}**. Over the last 28 days you "
+                    f"sold {r['units_sold']:,} orders, revenue {_money(r['revenue'])}, with a "
+                    f"{r['gross_margin_pct']}% margin after ingredients.")
+        chg = m["revenue_change_pct"]
+        return (f"This month so far: revenue **{_money(m['revenue'])}** "
+                f"({'+' if (chg or 0) >= 0 else ''}{chg}% vs the same days last month), operating profit "
+                f"{_money(m['operating_profit'])} ({m['operating_margin_pct']}% margin), expenses "
+                f"{_money(m['expenses'])}. Cash on hand {_money(c['balance'])}.")
+
     # ---------------------------------------------------------------- follow-ups
     LEVERS: ClassVar[tuple] = ("price_change_pct", "supply_change_pct", "ingredient_cost_change_pct",
                                "demand_shock_pct", "marketing_change_pct")
@@ -386,7 +516,7 @@ class OfflinePlanner:
         try:
             if getattr(self.s, "has_products", False) and re.search(
                     r"competitor|nearby|local market|other restaurants|compare.*(price|menu)|"
-                    r"market price|what do others charge", ql):
+                    r"market price|what do others charge|prices?\b.*\blocal(ly)?\b", ql):
                 prod = re.search(self.PRODUCT_RE, ql)
                 out = self._call(calls, "get_local_market_prices",
                                  {"product": (prod.group(1) + "s") if prod else None})
@@ -458,7 +588,7 @@ class OfflinePlanner:
             "percent?' with a number) and "
             "whether to buy more of a product's ingredients, supplier cost increases, and "
             "follow-ups like 'what about three percent instead?' or 'which is safer?'. Set GEMINI_API_KEY for "
-            "free-form questions.", "offline", calls)
+            "free-form questions.", "offline", calls, path="help")
 
     @staticmethod
     def _briefing_answer(out: dict, ql: str) -> str:

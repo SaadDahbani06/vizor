@@ -9,7 +9,7 @@ demo never waits for a live Gemini reply: live replies have taken 2–3 minutes.
 ```bash
 # 1. Stop any old processes: Ctrl-C old messaging workers and old dashboards.
 cd ~/Desktop/main-street-decision-intelligence && source .venv/bin/activate
-git switch milestone-5.5-premium-ui
+git switch milestone-6-final-product
 python -m decisiondesk.precompute                      # seconds when warm
 ./start.sh offline        # opens http://localhost:8501 in the browser
 ```
@@ -22,14 +22,14 @@ python -m decisiondesk.precompute                      # seconds when warm
 
 | Time | Click | Say |
 |---|---|---|
-| 0:00 | Overview, top | "This is the owner's morning view. It's a demo business with sample data, labelled at the top. The briefing says it in one sentence: sales were lower yesterday, 31% below a usual Friday, mainly because fewer customers came in; two items sold less than usual; three bills, $4,978, are due this week." |
-| 0:15 | KPI cards | "Sales this month **$36,704**, up 7%. Profit **$3,444**. Cash **$168,169**, which covers this week's bills. Costs **$33,260**, and the card names the cost rising most. Inventory is healthy." |
-| 0:30 | **Opportunity** card | "One idea: raise taco prices 5%. Expected **+$286** over four weeks. *Very likely to help, though a loss is possible.* The bar shows the downside (**−$5**) and the upside (**+$557**). We never hide the downside." |
-| 0:45 | **Explore in Decision Lab** | "Before and after, side by side. Revenue barely moves, profit up 5%, taco orders down 5.5%. Main risks: if customers react to price more strongly than we assumed, it turns into a loss (**−$72**). The next step is a short price test. It needs the owner's approval; nothing happens automatically." |
-| 1:05 | Type **What if supplier costs rise 8%?**, then **Run** | "You can just type the question. Supplier prices up 8%: profit drops about **$1,820** this month, and it says plainly not to absorb it as is." |
-| 1:20 | **Ask AI** (bottom right): **Which product is making the most money?**, then the link **See your products** | "The assistant answers from the same calculations: every number is checked against the data. Its answers link straight to the right view." |
-| 1:40 | **Local Market** | "Our prices against nearby restaurants: tacos are 15% below the local middle, worth testing. Competitors' prices show position, not how our customers will react, and the app says so." |
-| 1:55 | — | "Behind this: validated forecasts, simulations with checked ranges, and number verification. The owner just sees what's happening and what to do. The data is a demo; connecting a real restaurant is next." |
+| 0:00 | Overview, top | "This is a small business's morning view: a demo restaurant with sample data, labelled at the top. In one sentence: sales were lower yesterday, 31% below a usual Friday, mainly because fewer customers came in." |
+| 0:12 | **Business attention** bar | "It doesn't just show numbers: it noticed this, and two items, nachos and quesadillas, dropped more than traffic. Every alert has a next step." Click **Investigate →** on Nachos. |
+| 0:25 | Nachos: **Why this was flagged** | "Here's the evidence: orders against a typical Friday. It shows what changed, not why; weather and events aren't in the data. From here I can simulate." Click **Simulate a price change**. |
+| 0:38 | Decision Lab: set **+5%** on Tacos (or type it in the box) | "Every change is compared with today's plan: revenue, profit, cash, orders, sell-out risk. Expected profit **+$286** over four weeks, but the downside is shown too: **−$5**, and if customers react more strongly than we assumed, **−$72**." |
+| 0:58 | **Review action** | "Five steps: what to do, why, impact, risks, what to check. Approval only records the decision; nothing is changed automatically." Tick, then **Approve for my records**. |
+| 1:12 | **✦ Ask AI**: type *How much cash do we have?*, then *What happens if taco prices rise by 5%?*, then *What about 3% instead?* | "Simple questions answer instantly from the books. Scenarios run our simulation, and Gemini explains it in about two seconds. Every number is checked; earlier this took minutes." |
+| 1:35 | Bell → **Get alerts on my phone** | "Important risks can reach the owner by iMessage: 'Decision needed… reply DETAILS, OPTIONS or STOP.' Only after opt-in, never more than twice a day." |
+| 1:50 | — | "Behind it: validated forecasts, simulations with checked ranges, and number verification. The owner just sees what's happening, why it matters, and what to do." |
 
 ## If asked
 
@@ -46,6 +46,9 @@ python -m decisiondesk.precompute                      # seconds when warm
   changes are tested directly in the Decision Lab.
 
 ## Fallbacks
+
+- **Gemini slow, rate-limited or down:** nothing to do. The app answers from the verified engines
+  within a second. To remove all model calls, restart with `./start.sh offline`.
 
 - **The analyst is slow or failing:** use offline mode (above). Its replies start with "Offline
   analyst (rule-based…)"; say that out loud.

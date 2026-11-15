@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import html
 
-INK = "#0E1116"
-PAPER = "#F7F6F3"
-CARD = "#FFFFFF"
+INK = "#141414"
+PAPER = "#F3EEE3"
+CARD = "#FFFCF6"
 MUTED = "#5E6470"
 SUBTLE = "#8A8F99"
 GRID = "#EEEDE9"
-LINE = "#E6E5E1"
+LINE = "#E3DCCD"
 COBALT = "#2346D8"
 ORANGE = "#F26A1B"
 GOOD = "#0F7A4A"
@@ -34,12 +34,11 @@ PRODUCT_COLORS = {"Tacos": "#2346D8", "Burritos": "#F26A1B", "Quesadillas": "#0F
 
 CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
 :root {{ --ink:{INK}; --paper:{PAPER}; --card:{CARD}; --muted:{MUTED}; --subtle:{SUBTLE}; --line:{LINE};
         --brand:{COBALT}; --brand-soft:#EEF1FD; --pos:{GOOD}; --pos-soft:#E7F5EE; --neg:{BAD}; --neg-soft:#FDEDEB;
         --warn:{WARN}; --warn-soft:#FEF3E6; --radius:16px;
-        --shadow: 0 1px 2px rgba(14,17,22,.04), 0 4px 16px rgba(14,17,22,.05);
-        --shadow-lg: 0 2px 4px rgba(14,17,22,.04), 0 16px 40px rgba(14,17,22,.10); }}
+        --shadow: 4px 4px 0 #141414; --shadow-lg: 6px 6px 0 #141414; --edge: 1.5px solid #141414; }}
 html, body, .stApp {{ background: var(--paper); color: var(--ink); font-family: 'Inter', sans-serif;
         font-feature-settings: "tnum" 1, "cv11" 1; -webkit-font-smoothing: antialiased; }}
 header[data-testid="stHeader"] {{ display: none; }}
@@ -48,30 +47,37 @@ header[data-testid="stHeader"] {{ display: none; }}
 [data-testid="stMainBlockContainer"] p, [data-testid="stMainBlockContainer"] li {{ font-size: 15px; line-height: 1.55; }}
 [data-testid="stVerticalBlock"] {{ gap: 1rem; }}
 h1, h2, h3, h4 {{ font-family: 'Inter Tight', 'Inter', sans-serif !important; letter-spacing: -0.02em; color: var(--ink); }}
-h1 {{ font-weight: 700 !important; font-size: 1.9rem !important; padding: 0 !important; }}
+h1 {{ font-family: 'Fraunces', Georgia, serif !important; font-weight: 700 !important; font-size: 2.3rem !important;
+      padding: 0 !important; letter-spacing: -0.01em; }}
 h2 {{ font-weight: 650 !important; font-size: 1.5rem !important; }}
 h4 {{ font-weight: 650 !important; font-size: 1.08rem !important; }}
 @keyframes rise {{ from {{ opacity: 0; transform: translateY(6px); }} to {{ opacity: 1; transform: none; }} }}
 
 /* ---------- header ---------- */
 .brand {{ display:flex; align-items:center; gap:10px; }}
-.brand-mark {{ width:30px; height:30px; border-radius:9px; background: linear-gradient(135deg, #2346D8 0%, #5B7CFF 100%);
-    color:#fff; display:flex; align-items:center; justify-content:center; font: 700 15px 'Inter Tight'; box-shadow: 0 2px 8px rgba(35,70,216,.35); }}
-.brand-name {{ font: 700 17px 'Inter Tight', 'Inter'; letter-spacing: -0.01em; }}
+.brand-mark {{ width:34px; height:34px; border-radius:9px; background: var(--ink); border: var(--edge);
+    color:#F3EEE3; display:flex; align-items:center; justify-content:center; font: 700 17px 'Fraunces', serif; }}
+.brand-name {{ font: 700 18px/1.05 'Fraunces', Georgia, serif; letter-spacing: -0.01em; }}
+.brand-name, .sample {{ white-space: nowrap; }}
+@media (max-width: 1360px) {{ .brand-name {{ font-size: 15px; }} .sample {{ font-size: 10.5px; padding: 1px 7px; margin-left: 0; }} }}
+.brand-tag {{ font: 600 10px 'Inter'; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }}
 .biz-line {{ font: 500 13px 'Inter'; color: var(--muted); margin-top: 2px; }}
 .sample {{ display:inline-block; font: 600 11.5px 'Inter'; color: var(--warn); background: var(--warn-soft);
     border-radius: 999px; padding: 2px 9px; margin-left: 6px; cursor: help; }}
-.st-key-nav [data-testid="stRadioGroup"] {{ background: #EDECE8; padding: 4px; border-radius: 12px; display: inline-flex; gap: 2px !important; }}
+.st-key-nav [data-testid="stRadioGroup"] {{ background: var(--card); padding: 4px; border-radius: 12px; display: inline-flex;
+    gap: 2px !important; border: var(--edge); }}
 .st-key-nav [data-testid="stRadioOption"] > div > div:first-child,
 [class*="st-key-seg_"] [data-testid="stRadioOption"] > div > div:first-child {{ display: none !important; }}
 .st-key-nav [data-testid="stRadioOption"] {{ border-radius: 9px; margin: 0 !important; padding: 7px 16px !important; cursor: pointer;
     transition: background .15s ease; }}
-.st-key-nav [data-testid="stRadioOption"]:hover {{ background: rgba(255,255,255,.6); }}
-.st-key-nav [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--card); box-shadow: 0 1px 3px rgba(14,17,22,.12); }}
+.st-key-nav [data-testid="stRadioOption"]:hover {{ background: #EFE8D8; }}
+.st-key-nav [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--ink); }}
+.st-key-nav [data-testid="stRadioOption"][data-selected="true"] p {{ color: #F3EEE3 !important; }}
 .st-key-nav p {{ font: 600 14px 'Inter', sans-serif !important; color: #4A4F59; white-space: nowrap; }}
-.st-key-nav [data-testid="stRadioOption"][data-selected="true"] p {{ color: var(--ink) !important; }}
+.st-key-nav [data-testid="stRadioGroup"] {{ flex-wrap: nowrap !important; }}
+[data-testid="stPopover"] button p {{ white-space: nowrap; }}
 [class*="st-key-seg_"] [data-testid="stRadioGroup"] {{ gap: 6px !important; flex-wrap: wrap; }}
-[class*="st-key-seg_"] [data-testid="stRadioOption"] {{ border: 1px solid var(--line); border-radius: 999px;
+[class*="st-key-seg_"] [data-testid="stRadioOption"] {{ border: var(--edge); border-radius: 999px;
     margin: 0 !important; padding: 5px 14px !important; background: var(--card); cursor: pointer; transition: all .15s ease; }}
 [class*="st-key-seg_"] [data-testid="stRadioOption"]:hover {{ border-color: #C9C8C2; }}
 [class*="st-key-seg_"] [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--ink); border-color: var(--ink); }}
@@ -80,23 +86,51 @@ h4 {{ font-weight: 650 !important; font-size: 1.08rem !important; }}
 
 /* ---------- cards ---------- */
 [class*="st-key-kpi_"], [class*="st-key-card_"], [class*="st-key-panel_"] {{
-    background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
-    padding: 20px 22px 18px 22px; border-radius: var(--radius); animation: rise .35s ease both;
-    transition: box-shadow .2s ease, transform .2s ease; }}
-[class*="st-key-kpi_"]:hover, [class*="st-key-card_prod"]:hover {{ box-shadow: var(--shadow-lg); transform: translateY(-1px); }}
+    background: var(--card); border: var(--edge); box-shadow: var(--shadow);
+    padding: 20px 22px 18px 22px; border-radius: 14px; animation: rise .35s ease both;
+    transition: box-shadow .15s ease, transform .15s ease; }}
+[class*="st-key-kpi_"]:hover, [class*="st-key-card_prod"]:hover {{ box-shadow: var(--shadow-lg); transform: translate(-2px, -2px); }}
+/* KPI colour roles: one dark hero, tints for status; most cards stay calm cream */
+.st-key-kpi_revenue {{ background: var(--ink) !important; }}
+.st-key-kpi_revenue .kpi-label, .st-key-kpi_revenue .kpi-sub {{ color: #CFC8B8 !important; }}
+.st-key-kpi_revenue .kpi-value {{ color: #FFFCF6 !important; }}
+.st-key-kpi_revenue .tip {{ border-color: #6B665C; color: #CFC8B8; }}
+.st-key-kpi_revenue [class*="st-key-go_"] button p {{ color: #9DB2FF !important; }}
+.st-key-kpi_profit.pos-card {{ background: #DDEFE3 !important; }}
+[class*="st-key-kpi_"][class*="__tpos"] {{ background: #DDEFE3 !important; }}
+[class*="st-key-kpi_"][class*="__twarn"] {{ background: #FFE9B8 !important; }}
+[class*="st-key-kpi_"][class*="__tneg"] {{ background: #FAD4CF !important; }}
+[class*="st-key-kpi_"][class*="__tblue"] {{ background: #DCE4FF !important; }}
+.st-key-card_attention_calm {{ background: #DDEFE3 !important; }}
+.st-key-kpi_revenue, [class*="st-key-kpi_profit"], [class*="st-key-kpi_cash"], [class*="st-key-kpi_expenses"],
+[class*="st-key-kpi_inventory"], [class*="st-key-kpi_bills"] {{ min-height: 200px; }}
+.kpi-tint-pos {{ background: #DDEFE3 !important; }} .kpi-tint-warn {{ background: #FFE9B8 !important; }}
+.kpi-tint-neg {{ background: #FAD4CF !important; }} .kpi-tint-blue {{ background: #DCE4FF !important; }}
+/* Business attention bar */
+.st-key-card_attention {{ background: #FFDF8E !important; }}
+.st-key-card_attention.calm {{ background: #DDEFE3 !important; }}
+.attn-head {{ font: 800 21px/1.3 'Inter Tight', 'Inter'; color: var(--ink); letter-spacing: -0.015em; }}
+.attn-sub {{ font: 500 14.5px/1.5 'Inter'; color: #3A3428; margin-top: 2px; }}
+.attn-icon {{ width: 38px; height: 38px; border-radius: 10px; background: var(--ink); color: #FFDF8E; display:flex;
+    align-items:center; justify-content:center; font: 800 20px 'Inter Tight'; flex: 0 0 auto; }}
+[class*="st-key-act_"] button {{ background: var(--ink) !important; border: var(--edge) !important; border-radius: 10px !important;
+    box-shadow: 3px 3px 0 #FFFCF6 !important; }}
+[class*="st-key-act_"] button p {{ color: #FFFCF6 !important; font-weight: 700 !important; font-size: 14px !important; }}
+[class*="st-key-act2_"] button {{ background: var(--card) !important; border: var(--edge) !important; border-radius: 10px !important; }}
+[class*="st-key-act2_"] button p {{ font-weight: 700 !important; font-size: 14px !important; }}
 [class*="st-key-kpi_"] {{ padding: 18px 20px 14px 20px; }}
-.st-key-kpi_revenue, .st-key-kpi_profit, .st-key-kpi_cash, .st-key-kpi_expenses, .st-key-kpi_inventory {{ min-height: 226px; }}
+
 .st-key-kpi_revenue [data-testid="stVegaLiteChart"] {{ margin-top: -4px; }}
 [class*="st-key-kpi_"] [data-testid="stVerticalBlock"], [class*="st-key-card_prod"] [data-testid="stVerticalBlock"] {{ gap: .35rem; }}
-.st-key-card_briefing {{ background: linear-gradient(180deg, #FFFFFF 0%, #FBFBFE 100%); border-color: #E3E6F5; }}
+.st-key-card_briefing {{ background: var(--card); }}
 .eyebrow {{ font: 600 12px 'Inter'; letter-spacing: .04em; text-transform: uppercase; color: var(--subtle); }}
 .eyebrow.brand {{ color: var(--brand); }}
-.hero {{ font: 600 23px/1.4 'Inter Tight', 'Inter'; letter-spacing: -0.015em; color: var(--ink); margin: 6px 0 4px 0; max-width: 980px; }}
+.hero {{ font: 600 26px/1.35 'Fraunces', Georgia, serif; letter-spacing: -0.015em; color: var(--ink); margin: 6px 0 4px 0; max-width: 980px; }}
 .hero b {{ font-weight: 700; }}
-.section-title {{ font: 650 18px 'Inter Tight', 'Inter'; margin: 18px 0 0 0; color: var(--ink); }}
+.section-title {{ font: 700 20px 'Fraunces', Georgia, serif; margin: 18px 0 0 0; color: var(--ink); }}
 .section-sub {{ font: 500 14px 'Inter'; color: var(--muted); margin-top: 2px; }}
 .kpi-label {{ font: 600 13px 'Inter', sans-serif; color: var(--muted); display:flex; align-items:center; gap:6px; }}
-.kpi-value {{ font: 700 28px/1.15 'Inter Tight', 'Inter', sans-serif; letter-spacing: -0.02em; margin: 6px 0 4px 0; color: var(--ink); }}
+.kpi-value {{ font: 800 31px/1.1 'Inter Tight', 'Inter', sans-serif; letter-spacing: -0.025em; margin: 6px 0 4px 0; color: var(--ink); }}
 .kpi-sub {{ font: 500 13px/1.45 'Inter', sans-serif; color: var(--muted); min-height: 38px; }}
 .tip {{ display:inline-flex; width:15px; height:15px; border-radius:50%; border:1px solid #C9CBD1; color: var(--subtle);
     font: 600 10px 'Inter'; align-items:center; justify-content:center; cursor: help; }}
@@ -117,11 +151,11 @@ h4 {{ font-weight: 650 !important; font-size: 1.08rem !important; }}
 .dot.high {{ background: var(--neg); }} .dot.medium {{ background: #E3A008; }} .dot.low {{ background: #B9B7B0; }}
 .row-title {{ font: 600 15px 'Inter'; color: var(--ink); }}
 .row-detail {{ font: 400 14px/1.5 'Inter'; color: var(--muted); margin-top: 1px; }}
-.big-number {{ font: 700 34px/1.1 'Inter Tight', 'Inter'; letter-spacing: -0.025em; margin: 4px 0; }}
+.big-number {{ font: 800 40px/1.05 'Inter Tight', 'Inter'; letter-spacing: -0.03em; margin: 4px 0; }}
 .big-number.pos {{ color: var(--pos); }} .big-number.neg {{ color: var(--neg); }}
 .plain {{ font: 500 15px/1.55 'Inter'; color: #3A3F49; margin: 2px 0; }}
 .soft {{ font: 500 13.5px/1.5 'Inter'; color: var(--muted); }}
-.idea {{ font: 650 19px/1.3 'Inter Tight', 'Inter'; margin: 4px 0 2px 0; }}
+.idea {{ font: 700 21px/1.3 'Fraunces', Georgia, serif; margin: 4px 0 2px 0; }}
 /* range bar */
 .rb {{ margin: 14px 0 6px 0; }}
 .rb-track {{ position: relative; height: 10px; border-radius: 999px; background: #F0EFEB; }}
@@ -156,9 +190,9 @@ h4 {{ font-weight: 650 !important; font-size: 1.08rem !important; }}
 
 /* ---------- buttons, inputs ---------- */
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button, [data-testid="stPopover"] button {{
-    border: 1px solid var(--line) !important; border-radius: 10px !important; box-shadow: 0 1px 2px rgba(14,17,22,.05);
-    font-weight: 600 !important; background: var(--card); color: var(--ink); transition: all .15s ease; }}
-.stButton > button:hover {{ border-color: #C9C8C2 !important; color: var(--ink); background: #FAFAF8; }}
+    border: var(--edge) !important; border-radius: 10px !important; box-shadow: 2px 2px 0 #141414;
+    font-weight: 600 !important; background: var(--card); color: var(--ink); transition: all .12s ease; }}
+.stButton > button:hover {{ color: var(--ink); background: #FFF6DF; transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #141414; }}
 [class*="st-key-go_"] button, [class*="st-key-lm_go"] button, [class*="st-key-chatlink_"] button {{ box-shadow: none !important;
     border: none !important; background: transparent !important; padding: 0 !important; min-height: 0 !important; }}
 [class*="st-key-go_"] button p, [class*="st-key-lm_go"] button p, [class*="st-key-chatlink_"] button p {{ color: var(--brand) !important;
@@ -178,9 +212,9 @@ h4 {{ font-weight: 650 !important; font-size: 1.08rem !important; }}
 [class*="st-key-suggest_"] button > div {{ justify-content: flex-start !important; }}
 .kpi-sub .status {{ margin-bottom: 4px; }}
 .hr {{ border-top: 1px solid #F0EFEB; margin: 2px 0; }}
-[data-testid="stExpander"] {{ border: 1px solid var(--line) !important; border-radius: 14px !important; background: var(--card); }}
+[data-testid="stExpander"] {{ border: var(--edge) !important; border-radius: 12px !important; background: var(--card); }}
 [data-testid="stExpander"] summary p {{ font-weight: 600; }}
-[data-testid="stDataFrame"] {{ border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }}
+[data-testid="stDataFrame"] {{ border: var(--edge); border-radius: 10px; overflow: hidden; }}
 [data-testid="stMetricValue"] {{ font-family: 'Inter Tight', 'Inter', sans-serif; font-weight: 700; }}
 [data-testid="stMetricLabel"] p {{ color: var(--muted) !important; font-weight: 600 !important; }}
 div[data-testid="stAlert"] {{ border-radius: 12px; }}
@@ -194,18 +228,19 @@ div[data-testid="stAlert"] {{ border-radius: 12px; }}
     padding: 12px 20px !important; box-shadow: 0 10px 30px rgba(14,17,22,.30) !important; }}
 .st-key-chat_fab button p {{ color: #fff !important; font-size: 14.5px !important; font-weight: 600; }}
 .st-key-chat_panel {{ position: fixed; top: 0; right: 0; bottom: 0; z-index: 1000; width: min(440px, 100vw) !important;
-    background: var(--card); border-left: 1px solid var(--line); box-shadow: -12px 0 40px rgba(14,17,22,.10);
+    background: var(--card); border-left: var(--edge); box-shadow: -8px 0 0 rgba(20,20,20,.06);
     padding: 20px 20px 16px 20px; overflow-y: auto; animation: slidein .25s ease both; }}
 @keyframes slidein {{ from {{ transform: translateX(24px); opacity: 0; }} to {{ transform: none; opacity: 1; }} }}
 .st-key-chat_box {{ display: flex; flex-direction: column-reverse !important; overflow-y: auto; max-height: calc(100vh - 240px);
     padding-right: 4px; }}
 .st-key-chat_panel [data-testid="stChatMessage"] {{ background: transparent; padding: 4px 0; gap: 10px; }}
 .st-key-chat_panel [data-testid="stChatMessage"]:has([aria-label="Chat message from user"]) {{ flex-direction: row-reverse; }}
-.st-key-chat_panel [data-testid="stChatMessageContent"] {{ background: #F5F5F2; border-radius: 16px; padding: 10px 14px; }}
+.st-key-chat_panel [data-testid="stChatMessageContent"] {{ background: #F3EEE3; border: 1px solid #E3DCCD; border-radius: 16px;
+    padding: 10px 14px; }}
 .st-key-chat_panel [data-testid="stChatMessage"] p, .st-key-chat_panel [data-testid="stChatMessage"] li {{ font-size: 14px; line-height: 1.55; }}
 .st-key-chat_toggle_close button {{ border: none !important; box-shadow: none !important; background: transparent !important; }}
 .chat-head {{ display:flex; align-items:center; gap:12px; }}
-.chat-avatar {{ width:36px; height:36px; border-radius: 11px; background: linear-gradient(135deg, #2346D8, #5B7CFF);
+.chat-avatar {{ width:36px; height:36px; border-radius: 11px; background: var(--ink);
     color:#fff; display:flex; align-items:center; justify-content:center; font: 700 14px 'Inter Tight'; flex: 0 0 auto; }}
 .chat-name {{ font: 650 16px 'Inter Tight', 'Inter'; }}
 .chat-sub {{ font: 500 12.5px 'Inter'; color: var(--muted); }}

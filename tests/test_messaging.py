@@ -368,6 +368,7 @@ def test_long_replies_are_trimmed():
 
 # ------------------------------------------------------------------ Gemini through iMessage
 def test_gemini_analyst_answers_imessage_with_tools(tmp_path, base_session, monkeypatch):
+    monkeypatch.setenv("MSRD_ROUTING", "llm")  # tests the model's own tool loop
     from decisiondesk.agent import gemini as gem
     monkeypatch.setattr(gem, "BUDGET", gem.CallBudget(100))
     client = fake_client(call(EVAL, {"food_cost_change_pct": 10}), profit_text)
@@ -380,6 +381,7 @@ def test_gemini_analyst_answers_imessage_with_tools(tmp_path, base_session, monk
 
 
 def test_gemini_outage_still_answers_from_offline_analyst(tmp_path, base_session, monkeypatch):
+    monkeypatch.setenv("MSRD_ROUTING", "llm")  # tests the model's own tool loop
     from test_gemini import api_error
 
     from decisiondesk.agent import gemini as gem

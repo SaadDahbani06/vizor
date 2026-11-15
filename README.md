@@ -4,9 +4,9 @@
 
 Organization uploads structured internal data → system selects external evidence where relevant → forecasts and tests scenarios → ranks feasible decisions → explains uncertainty and assumptions → (later) monitors and alerts.
 
-## Hackathon demo (Milestone 5.5: premium owner experience)
+## Hackathon demo (Milestone 6: final product)
 
-Run `./start.sh offline` (opens http://localhost:8501). Design notes: `docs/MILESTONE_5_5_UI.md`.
+Run `./start.sh` (opens http://localhost:8501; `./start.sh offline` is the no-AI backup). Report with measured Gemini latency and Photon checks: `docs/MILESTONE_6.md`.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -91,7 +91,8 @@ python -m decisiondesk.messaging.worker run
 - ✅ Milestone 5.3: Local Market page (verified, dated official menu prices of 6 Austin restaurants, normalized servings, never a price recommendation, opens the Scenario Lab) and a Daily Owner Briefing with an approval-first action checklist; research report in `docs/MILESTONE_5_3_MARKET_RESEARCH.md`
 - ✅ Milestone 5.2 audit: fixed exploding substitution demand in the Scenario Lab and a lost analyst click; see `docs/MILESTONE_5_2_AUDIT.md`
 - ✅ Milestone 5.5: premium owner UI (design system, daily briefing sentence, KPI cards, opportunity with downside bar, before-and-after Decision Lab with typed what-ifs, price-position Local Market, Ask AI side panel with links); analytics unchanged; see `docs/MILESTONE_5_5_UI.md`
-- ✅ Tests: 250 offline/mocked pass (Milestone 5.4 added 17 backend tests and rewrote the UI tests; Milestone 5.3 added 17; Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
+- ✅ Milestone 6: editorial redesign (Business attention bar, 6 KPI cards, Investigate, Review action with recorded approval), fast routed analyst (verified fast facts → engines → one Gemini explanation; measured median 1.5 s vs 9.3 s before, worst 7.4 s vs 74.9 s), circuit breaker and deadlines, proactive "decision needed" iMessages with DETAILS/OPTIONS; see `docs/MILESTONE_6.md`
+- ✅ Tests: 274 offline/mocked pass (Milestone 5.4 added 17 backend tests and rewrote the UI tests; Milestone 5.3 added 17; Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
 - ✅ Milestone 5 product layer: five products, recipes, Mon/Thu ingredient ledger with rationing of shared ingredients, sell-out times and a demand estimate that corrects censored sales; reconciles with daily revenue and food cost (`products.py`)
 - ✅ Milestone 5 product demand forecasts (one per product, existing leaderboard) and the Scenario Lab engine: price, ingredient orders, extra purchase, demand shock, marketing; substitution; profit vs cash; uncertainty; sensitivity; price-policy check; ranked recommendation (`decision/product_scenario.py`)
 - ✅ Milestone 5 dashboard numbers (`dashboard.py`) and redesigned seven-page Streamlit interface (`app/streamlit_app.py`, `ui/`)

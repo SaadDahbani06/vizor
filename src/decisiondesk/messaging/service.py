@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import uuid
 from collections.abc import Callable
@@ -62,6 +63,8 @@ class Owner:
     last_inbound_at: str | None = None
     line: str | None = None
     platform: str = "imessage"
+    notify_level: str = "decision_needed"   # or "important" (also texts important alerts)
+    last_alert: dict | None = None          # for DETAILS / OPTIONS replies; persisted
 
     @property
     def masked(self) -> str:
@@ -79,7 +82,11 @@ class MessagingStore:
     def reload(self) -> None:
         """Re-read the state file (used by read-only viewers while another process polls)."""
         data = json.loads(self.path.read_text()) if self.path.exists() else {}
-        self.owners = {h: Owner(**o) for h, o in data.get("owners", {}).items()}
+        known = set(Owner.__dataclass_fields__)
+        self.owners = {h: Owner(**{k: v for k, v in o.items() if k in known})
+                       for h, o in data.get("owners", {}).items()}
+        for o in self.owners.values():  # Milestone 5.4 removed national-indicator alerts
+            o.alert_prefs = [k for k in o.alert_prefs if k != "economic_release"]
         self.processed: list[str] = data.get("processed", [])
         self.sent_alert_keys: list[str] = data.get("sent_alert_keys", [])
         self.outbound: list[dict] = data.get("outbound", [])
@@ -353,6 +360,45 @@ class MessagingService:
                 self.store.save()
         return rec
 
+    def send_attention(self, handle: str, briefing: dict, *, max_messages: int = 2) -> list[dict]:
+        """Text the owner about briefing alerts that need attention (never routine ones).
+
+        decision_needed alerts go to owners who opted in to alerts; important alerts only if the
+        owner chose the "important" level. At most ``max_messages`` per run, once per alert per
+        day, never after STOP, numbers checked against the briefing. Replies: DETAILS, OPTIONS,
+        STOP. Nothing is ordered or changed automatically."""
+        o = self.store.owner(handle)
+        if o.stopped or not o.alerts_opt_in:
+            return []
+        allowed = {"decision_needed"} | ({"important"} if o.notify_level == "important" else set())
+        data = [{k: v for k, v in briefing.items() if k != "text"}]
+        sent = []
+        for a in briefing.get("alerts", []):
+            if len(sent) >= max_messages:
+                break
+            if a.get("level") not in allowed:
+                continue
+            dedup = f"attention:{o.handle}:{briefing['date']}:{a['kind']}:{a.get('product') or ''}"
+            if dedup in self.store.sent_alert_keys:
+                continue
+            head = "Decision needed" if a["level"] == "decision_needed" else "Heads up"
+            text = (f"{head}: {a['title']}. {a['detail']} Reply DETAILS for the numbers, OPTIONS for what you "
+                    "could do, or STOP. Nothing is ordered or changed automatically.")
+            bad = ungrounded_numbers(text, data, [])
+            if bad:
+                self.store.event("alert_blocked", f"{a['kind']}: ungrounded numbers {bad}")
+                continue
+            rec = self._send(o, text, key=f"msrd-attn:{uuid.uuid5(uuid.NAMESPACE_URL, dedup).hex[:16]}",
+                             kind=f"attention:{a['level']}", evidence={"briefing_date": briefing["date"],
+                                                                        "alert": a["kind"]})
+            with self.store.lock:
+                self.store.sent_alert_keys.append(dedup)
+                o.last_alert = {k: a.get(k) for k in ("kind", "level", "title", "detail", "next_step", "product")} | {
+                    "date": briefing["date"]}
+                self.store.save()
+            sent.append(rec)
+        return sent
+
     def send_alert(self, handle: str, signal) -> dict | None:
         """Send one risk signal if consent, preference, dedupe and grounding all allow it."""
         o = self.store.owner(handle)
@@ -422,17 +468,31 @@ class MessagingService:
                                  "business. Reply STOP to unsubscribe, HELP for commands.",
                               key=key, kind="start", parent=mid)
         if word == "HELP":
-            return self._send(o, "Main Street Risk Desk: ask about forecasts, cash, costs or "
-                                 "decisions. OPTIONS = compare actions. STOP = unsubscribe. "
-                                 "Figures are model estimates, not guarantees.",
-                              key=key, kind="help", parent=mid)
+            return self._send(o, "Main Street Risk Desk: ask about sales, cash, costs, prices or a decision "
+                                 "(for example 'What if taco prices rise 5%?'). DETAILS = numbers behind the last "
+                                 "alert. OPTIONS = what you could do. STOP = unsubscribe. Figures are estimates, "
+                                 "not guarantees.", key=key, kind="help", parent=mid)
+        if word in ("DETAILS", "DETAIL"):
+            last = o.last_alert
+            if last:
+                body = (f"{last['title']} ({last['date']}). {last['detail']} Next step: {last['next_step']} "
+                        "Reply OPTIONS to compare what you could do.")
+            else:
+                from ..briefing import briefing_sms, daily_briefing
+                body = briefing_sms(daily_briefing(self.agent_for(o).session))
+            return self._send(o, body, key=key, kind="details", parent=mid)
         question = text
         if word in ("OPTIONS", "OPTION"):
-            question = "What should I do? Compare the available actions to reduce the risk."
+            last = o.last_alert or {}
+            question = ("Should I buy more " + last["product"].lower() + " ingredients?"
+                        if last.get("kind") in ("low_stock", "stockout_risk") and last.get("product") else
+                        "Will I run out of cash?" if last.get("kind") == "cash" else
+                        "What should I do? Compare the available actions to reduce the risk.")
         agent = self.agent_for(o)
         reply = agent.ask(question)
         footer = "" if reply.grounded else " (some figures could not be verified)"
-        body = f"{reply.text}{footer}"
+        clean = re.sub(r"^Offline analyst(?: \(rule-based, no language model\))?\.\s*", "", reply.text)
+        body = f"{clean.replace('**', '')}{footer}"
         src = self.scenario_source(o.business_key)
         return self._send(o, body, key=key, kind=f"reply:{reply.mode}", parent=mid,
                           evidence={"run_ids": [c["output"]["run_id"] for c in reply.tool_calls

@@ -37,14 +37,17 @@ def visible(at) -> str:
 def test_overview_answers_the_owners_questions(at):
     assert list(at.radio(key="nav").options) == PAGES
     t = md(at)
-    for label in ("Sales this month", "Profit this month", "Cash on hand", "Costs this month", "Inventory"):
-        assert label in t, label
-    assert "Daily briefing" in t and "Sales were lower yesterday" in t and "fewer customers came in" in t
-    assert "Covers this week" in t and "Rising most:" in t
-    assert "Opportunity" in t and "Raise tacos prices by 5%" in t and "+$286" in t
+    for label in ("Revenue", "Operating profit", "Cash available", "Expenses", "Inventory health",
+                  "Upcoming obligations"):
+        assert f'<div class="kpi-label">{label}' in t, label
+    assert "Business attention" in t and "Sales were lower yesterday" in t and "fewer customers came in" in t
+    assert "Covers this week" in t and "Rising most:" in t and "Product performance" in t
+    assert "Recommended decision to review" in t and "Raise tacos prices by 5%" in t and "+$286" in t
+    assert "Key risk:" in t
     assert "Very likely to help, though a loss is possible." in t
     assert "Downside <b>-$5</b>" in t and "Upside <b>+$557</b>" in t  # downside stays visible
-    assert 1 <= len([b for b in at.button if b.key and b.key.startswith("go_alert_")]) <= 3
+    assert at.button(key="act_attn_0").label == "Investigate"  # top alert: sales decline
+    assert 1 <= len([b for b in at.button if b.key and b.key.startswith("go_alert_")]) <= 2
     assert "Demo Business · Sample Data" in t  # one discreet sample-data label
 
 
@@ -120,7 +123,9 @@ def test_decision_lab_before_and_after(at):
     assert "within your limit" in t and "Profit impact" in t and "+$286" in t
     assert "Today&#x27;s plan" in t or "Today's plan" in t
     assert "With your change" in t and "Tacos orders (demand)" in t
-    assert "Main risks" in t and "Recommended next step" in t and "Needs your approval" in t
+    for step in ("Review action", "1. What to do", "2. Why it may help", "3. Estimated impact", "4. Main risks",
+                 "5. Check before acting"):
+        assert step in t, step
     assert any("assumption" in c.label for c in at.checkbox)
     at.radio(key="seg_sl_mode").set_value("Order more or less").run()
     assert at.session_state["sl_price"] == 0.0 and "sl_price" not in {x.key for x in at.slider}
@@ -272,6 +277,38 @@ def test_settings_is_outside_the_navigation(at):
         at.radio(key="seg_ev_section").set_value(sec).run()
         assert not at.exception, sec
     at.button(key="settings_close").click().run()
-    assert at.session_state["view"] is None and "Daily briefing" in md(at)
+    assert at.session_state["view"] is None and "Business attention" in md(at)
     at.button(key="open_data").click().run()
     assert "Upload your own daily records" in md(at) and "not connected to a real bank" in md(at)
+
+
+def test_attention_bar_investigate_flow(at):
+    """Observe -> detect -> explain -> simulate: the alert opens the evidence, then the Lab."""
+    at.button(key="act_attn_0").click().run()  # "Sales were 31% below a usual Friday" -> Investigate
+    assert at.radio(key="seg_mb_section").value == "Sales & profit"
+    t = md(at)
+    assert "Why this was flagged" in t and "Usual Friday" in t and "not why" in t
+    at.radio(key="nav").set_value("Overview").run()
+    at.button(key="go_alert_1").click().run()  # Nachos sold less than usual -> product evidence
+    t = md(at)
+    assert "## Nachos" in t and "Why this was flagged" in t
+    at.button(key="act_inv_price").click().run()
+    assert at.radio(key="nav").value == "Decision Lab" and at.selectbox(key="sl_product").value == "Nachos"
+    assert at.radio(key="seg_sl_mode").value == "Change a price" and not at.exception
+
+
+def test_review_action_approval_is_recorded_not_executed(at, tmp_path):
+    import json
+    import os
+    at.radio(key="nav").set_value("Decision Lab").run()
+    at.slider(key="sl_price").set_value(5.0).run()
+    assert at.button(key="cta_approve").disabled  # needs the acknowledgement first
+    at.checkbox(key="lab_ack").check().run()
+    at.button(key="cta_approve").click().run()
+    from pathlib import Path
+    log = json.loads(Path(os.environ["MSRD_DECISION_LOG"]).read_text())
+    assert log[-1]["action"] == "Tacos price +5%" and log[-1]["executed_automatically"] is False
+    assert log[-1]["expected_profit_change"] == 286 and log[-1]["downside"] == -5
+    assert "Make the change yourself" in at.session_state["lab_approved"]
+    at.slider(key="sl_price").set_value(10.0).run()  # outside the owner's limit: no approve button
+    assert "cta_approve" not in {x.key for x in at.button}

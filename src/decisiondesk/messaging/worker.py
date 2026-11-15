@@ -3,7 +3,7 @@
   python -m decisiondesk.messaging.worker status            # read-only Photon status (masked)
   python -m decisiondesk.messaging.worker run --once        # one poll + status refresh
   python -m decisiondesk.messaging.worker run               # poll every 4 s until Ctrl-C
-  python -m decisiondesk.messaging.worker alerts            # scan risks, send opted-in alerts
+  python -m decisiondesk.messaging.worker alerts            # "decision needed" texts + risk alerts (opted-in only)
   python -m decisiondesk.messaging.worker scenario          # which scenario replies will use
   python -m decisiondesk.messaging.worker briefing          # print today's short briefing (sends nothing)
   python -m decisiondesk.messaging.worker briefing --send   # send it to owners who opted in
@@ -83,8 +83,12 @@ def main() -> None:
             return
         svc.sync_recipients()
         if args.cmd == "alerts":
+            from ..briefing import daily_briefing
             for owner in [o for o in svc.store.owners.values() if o.authorized]:
-                for sig in scan(svc.agent_for(owner).session):  # owner's own scenario
+                session = svc.agent_for(owner).session  # owner's own published scenario
+                sent = svc.send_attention(owner.handle, daily_briefing(session))
+                print(owner.masked, "attention ->", f"{len(sent)} sent" if sent else "none (opt-in/level/already sent)")
+                for sig in scan(session):
                     rec = svc.send_alert(owner.handle, sig)
                     print(sig.kind, "->", "sent" if rec else "not sent (consent/dedupe/pref)")
             return

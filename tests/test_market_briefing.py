@@ -190,7 +190,7 @@ def test_local_market_page_opens_the_decision_lab(monkeypatch):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
-    assert any("Daily briefing" in m.value for m in at.markdown)
+    assert any("Business attention" in m.value for m in at.markdown)
     at.radio(key="nav").set_value("Local Market").run()
     assert not at.exception
     text = " ".join(m.value for m in at.markdown)

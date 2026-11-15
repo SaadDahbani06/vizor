@@ -9,6 +9,7 @@ Design rules:
 """
 from __future__ import annotations
 
+import json
 import uuid
 from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
@@ -755,11 +756,63 @@ TOOL_FUNCS = {
 }
 
 
+def get_key_numbers(s: BusinessSession) -> dict:
+    """The headline facts an owner asks about most, from the records (no simulation): yesterday vs
+    a typical same weekday, month to date, cash, bills due within 7 days, and per-item prices and
+    sales over the last 28 days."""
+    from .. import dashboard
+    h = s.history
+    day = pd.Timestamp(h["date"].max())
+    y = h[h["date"] == day].iloc[0]
+    past = h[h["date"].isin([day - pd.Timedelta(days=7 * k) for k in range(1, 5)])]
+    if "closed" in h:
+        past = past[~past["closed"].astype(bool)]
+    typ = float(past["revenue"].mean()) if len(past) else None
+    profit = float(y["revenue"] - y["variable_costs"] - y["fixed_costs"])
+    k = dashboard.kpis(s, "mtd")
+    out = {"yesterday": {"date": str(day.date()), "weekday": day.day_name(), "revenue": _r(y["revenue"], 2),
+                         "typical_same_weekday_revenue": _r(typ, 2),
+                         "revenue_change_vs_typical_pct": _r((y["revenue"] - typ) / typ * 100, 1) if typ else None,
+                         "operating_profit": _r(profit, 2),
+                         "customers": int(y["units_sold"]) if "units_sold" in h else None},
+           "month_to_date": {"period": k["period_label"], "compared_with": k["comparison_label"],
+                             "revenue": _r(k["revenue"]["value"], 0),
+                             "revenue_change_pct": _r(k["revenue"]["change_pct"], 1),
+                             "operating_profit": _r(k["net_profit"]["value"], 0),
+                             "operating_margin_pct": _r(k["net_profit"]["margin_pct"], 1),
+                             "expenses": _r(k["expenses"]["value"], 0),
+                             "expenses_change_pct": _r(k["expenses"]["change_pct"], 1)},
+           "cash": {"balance": _r(k["cash"]["value"], 0), "source": k["cash"]["source"]}}
+    li = dashboard.liabilities(s)
+    if li.get("payables") is not None:
+        due = [b for b in li["scheduled_bills"] if pd.Timestamp(b["date"]) <= day + pd.Timedelta(days=7)]
+        out["bills_due_7_days"] = {"count": len(due), "total": _r(sum(b["amount"] for b in due), 0),
+                                   "unpaid_supplier_invoices": _r(li["payables"], 0)}
+    if s.has_products:
+        t = dashboard.product_table(s, "28d")
+        out["products_last_28_days"] = [{"product": r["product"], "price": _r(r["price"], 2),
+                                         "units_sold": int(r["units_sold"]), "revenue": _r(r["revenue"], 0),
+                                         "gross_margin_pct": _r(r["gross_margin_pct"], 1)} for _, r in t.iterrows()]
+        out["product_period_days"] = 28
+        out["best_seller_by_revenue"] = str(t.loc[t["revenue"].idxmax(), "product"])
+        out["most_units_sold"] = str(t.loc[t["units_sold"].idxmax(), "product"])
+    out["data_origin"] = "observed records (" + s.data_label + ")"
+    return s._stamp("get_key_numbers", {}, out)
+
+
+TOOL_FUNCS["get_key_numbers"] = get_key_numbers
+
+
 def _nullable(t: str, desc: str) -> dict:
     return {"type": [t, "null"], "description": desc}
 
 
 TOOL_SCHEMAS = [
+    {"name": "get_key_numbers",
+     "description": "Headline facts: yesterday's sales vs a typical same weekday, month-to-date sales, "
+                    "profit and expenses, cash, bills due in 7 days, item prices and 28-day sales. "
+                    "Use first for simple 'how much / which / what price' questions.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": [], "properties": {}}},
     {"name": "get_business_overview",
      "description": "Summarize the business's recent revenue, costs, operating profit, cash "
                     "balance (with its source), inventory and bills for the last N days, compared "
@@ -899,7 +952,22 @@ TOOL_SCHEMAS = [
 ]
 
 
+# Tools that only read records or validated forecasts: identical calls under an identical scenario
+# state return the cached result (no recomputation, same run_id). Scenario tools always run.
+CACHEABLE = {"get_key_numbers", "get_business_overview", "get_product_performance", "get_daily_briefing",
+             "get_local_market_prices", "explain_profit_change", "forecast_business", "get_assumptions"}
+
+
 def run_tool(s: BusinessSession, name: str, args: dict) -> dict:
     if name not in TOOL_FUNCS:
         raise ValueError(f"unknown tool {name!r}")
-    return TOOL_FUNCS[name](s, **{k: v for k, v in (args or {}).items()})
+    args = {k: v for k, v in (args or {}).items()}
+    if name in CACHEABLE:
+        key = (name, json.dumps(args, sort_keys=True, default=str), repr(asdict(s.state)))
+        cache = s.__dict__.setdefault("_tool_cache", {})
+        if key not in cache:
+            if len(cache) > 64:
+                cache.clear()
+            cache[key] = TOOL_FUNCS[name](s, **args)
+        return cache[key]
+    return TOOL_FUNCS[name](s, **args)

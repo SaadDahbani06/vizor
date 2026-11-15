@@ -196,7 +196,8 @@ def _last_tool_output(kw):
     raise AssertionError("no tool result sent")
 
 
-def test_claude_mode_executes_tools_and_grounds_reply(restaurant):
+def test_claude_mode_executes_tools_and_grounds_reply(restaurant, monkeypatch):
+    monkeypatch.setenv("MSRD_ROUTING", "llm")  # tests the model's own tool loop
     def answer(kw):
         out = _last_tool_output(kw)
         top = out["actions"][0]
@@ -219,7 +220,8 @@ def test_claude_mode_executes_tools_and_grounds_reply(restaurant):
     assert reply.tool_calls[0]["output"]["scenario"]["food_cost_change_pct"] == 15
 
 
-def test_claude_mode_invented_number_is_retried_then_flagged(restaurant):
+def test_claude_mode_invented_number_is_retried_then_flagged(restaurant, monkeypatch):
+    monkeypatch.setenv("MSRD_ROUTING", "llm")  # tests the model's own tool loop
     fake = FakeAnthropic([tool_turn("get_assumptions", {}),
                           final_turn(lambda kw: "Profit will rise by $123,457 next quarter."),
                           final_turn(lambda kw: "Still guessing: 87.6% better.")])
@@ -352,8 +354,8 @@ def test_ui_runs_end_to_end_without_credentials(monkeypatch):
     reply = at.chat_message[0]  # newest first
     assert not at.exception and "Recommendation" in reply.markdown[0].value
     assert "Offline mode" in " ".join(m.value for m in at.markdown)  # the analyst's mode is labelled
-    at.radio(key="source").set_value("Demo retailer (Columbus, OH)").run()
-    assert not at.exception and "Maple Street Hardware" in banner()
+    at.selectbox(key="source").set_value("Demo retailer (Columbus, OH)").run()
+    assert not at.exception and "Maple Street Hardware" in " ".join(m.value for m in at.markdown)
     at.radio(key="nav").set_value("Decision Lab").run()
     assert not at.exception
     assert any("Item-level what-ifs are not available" in m.value for m in at.markdown)  # empty state

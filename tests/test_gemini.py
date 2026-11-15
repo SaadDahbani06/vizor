@@ -26,6 +26,10 @@ def session():
 @pytest.fixture(autouse=True)
 def _fresh_budget(monkeypatch):
     monkeypatch.setattr(gem, "BUDGET", gem.CallBudget(1000))
+    monkeypatch.setattr(gem, "_BROKEN", {})
+    # These tests exercise the language model's tool loop itself; fast routing is tested separately.
+    monkeypatch.setenv("MSRD_ROUTING", "llm")
+    monkeypatch.setenv("GEMINI_MODEL", "gemini-3.8-flash")  # model-chain tests below use explicit names
 
 
 def call(name, args, cid="call_1"):
@@ -98,9 +102,10 @@ def test_model_and_tool_configuration(session, monkeypatch):
     agent = DecisionAgent(session, client=fake_client(), channel="imessage")
     g = agent.gemini
     assert agent.mode == "gemini" and agent.label == "Gemini analyst"
-    assert g.model == gem.DEFAULT_MODEL == "gemini-3.8-flash"
+    # No GEMINI_MODEL: the default, chosen by measurement (Milestone 6: fastest model with quota)
+    assert g.model == gem.DEFAULT_MODEL == "gemini-3.5-flash-lite"
     decls = g.config.tools[0].function_declarations
-    assert len(decls) == len(TOOL_SCHEMAS) == 14
+    assert len(decls) == len(TOOL_SCHEMAS) == 15  # + get_key_numbers (Milestone 6)
     assert "get_economic_indicators" not in {t["name"] for t in TOOL_SCHEMAS}  # no macro UI (5.4)
     assert {d.name for d in decls} == {t["name"] for t in TOOL_SCHEMAS}
     assert g.config.automatic_function_calling.disable is True
@@ -207,6 +212,7 @@ def test_transport_errors_and_local_budget(session, monkeypatch):
     reply = DecisionAgent(session, client=fake_client(TimeoutError())).ask("hi")
     assert reply.mode == "offline" and "transport" in reply.fallback_reason
     monkeypatch.setattr(gem, "BUDGET", gem.CallBudget(0))
+    monkeypatch.setattr(gem, "_BROKEN", {})  # the timeout above tripped the circuit breaker
     client = fake_client(say("never reached"))
     reply = DecisionAgent(session, client=client).ask("hi")
     assert "budget" in reply.fallback_reason and client.models.requests == []
