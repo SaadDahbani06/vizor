@@ -342,14 +342,16 @@ def test_ui_runs_end_to_end_without_credentials(monkeypatch):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
-    banner = lambda: " ".join(m.value for m in at.markdown if "demo-banner" in m.value)
-    assert not at.exception and "SYNTHETIC" in banner()
+    banner = lambda: " ".join(m.value for m in at.markdown if "brand-name" in m.value)
+    assert not at.exception and "Demo Business · Sample Data" in banner() and "synthetic" in banner()
     at.radio(key="nav").set_value("Decision Lab").run()
     at.button(key="d_run").click().run()
     assert not at.exception and (at.success or at.warning)
-    at.button(key="chat_toggle").click().run()  # floating "Ask your analyst" (5.4)
+    at.button(key="chat_toggle").click().run()  # "Ask AI" side panel (5.5)
     at.chat_input(key="chat_in").set_value("What should I do if my food costs increase 15%?").run()
-    assert not at.exception and "Offline analyst" in at.chat_message[-1].markdown[0].value
+    reply = at.chat_message[0]  # newest first
+    assert not at.exception and "Recommendation" in reply.markdown[0].value
+    assert "Offline mode" in " ".join(m.value for m in at.markdown)  # the analyst's mode is labelled
     at.radio(key="source").set_value("Demo retailer (Columbus, OH)").run()
     assert not at.exception and "Maple Street Hardware" in banner()
     at.radio(key="nav").set_value("Decision Lab").run()

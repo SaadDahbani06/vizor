@@ -295,3 +295,33 @@ def price_position(df: pd.DataFrame, our_price: float, median: float | None, *, 
                                                              range=[[1, 0], [6, 4]]), legend=None),
         tooltip=[alt.Tooltip("what:N"), alt.Tooltip("x:Q", format="$.2f", title="Price")])
     return finish(alt.layer(dots, rules).resolve_scale(color="independent"), height)
+
+
+def trend(frame: pd.DataFrame, *, weekly: bool = True, height: int = 280):
+    """Sales as a soft area and profit as a line (weekly sums by default), with a hover rule that
+    shows both values. ``frame``: date, revenue, profit (daily)."""
+    d = frame[["date", "revenue", "profit"]].copy()
+    d["date"] = pd.to_datetime(d["date"])
+    if weekly:  # 7-day blocks ending on the last data day, so the latest week is complete
+        last = d["date"].max()
+        d["block"] = ((last - d["date"]).dt.days // 7)
+        d = (d.groupby("block").agg(date=("date", "max"), revenue=("revenue", "sum"), profit=("profit", "sum"),
+                                    n=("date", "size")).reset_index(drop=True))
+        d = d[d["n"] == 7].sort_values("date").drop(columns="n")
+    d["label"] = d["date"].dt.strftime("Week to %b %d" if weekly else "%a %b %d")
+    base = alt.Chart(d).encode(x=alt.X("date:T", title=None, axis=alt.Axis(format="%b %d", tickCount=6,
+                                                                              grid=False, domain=False, ticks=False)))
+    area = base.mark_area(line={"color": COBALT, "strokeWidth": 2.5}, interpolate="monotone",
+                          color=alt.Gradient(gradient="linear", x1=1, x2=1, y1=1, y2=0,
+                                             stops=[alt.GradientStop(color="rgba(35,70,216,0.02)", offset=0),
+                                                    alt.GradientStop(color="rgba(35,70,216,0.22)", offset=1)])
+                          ).encode(y=alt.Y("revenue:Q", title=None, axis=alt.Axis(format="$,.0f", tickCount=4)))
+    prof = base.mark_line(color=ORANGE, strokeWidth=2.5, interpolate="monotone",
+                          point=alt.OverlayMarkDef(color=ORANGE, size=28, filled=True)).encode(y="profit:Q")
+    hover = alt.selection_point(fields=["date"], nearest=True, on="pointerover", empty=False, clear="pointerout")
+    rule = base.mark_rule(color="#C9CBD1", strokeWidth=1).encode(
+        opacity=alt.condition(hover, alt.value(1), alt.value(0)),
+        tooltip=[alt.Tooltip("label:N", title="Period"), alt.Tooltip("revenue:Q", title="Sales", format="$,.0f"),
+                 alt.Tooltip("profit:Q", title="Profit", format="$,.0f")]).add_params(hover)
+    zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#D5D4CF", strokeDash=[3, 3]).encode(y="y:Q")
+    return finish(alt.layer(area, prof, zero, rule), height)

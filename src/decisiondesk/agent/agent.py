@@ -342,10 +342,9 @@ class OfflinePlanner:
         for o in (a, b):
             p = o["operating_profit"]
             lo, hi = p["change_90pct_range"]
-            lines.append(f"  {o['scenario_text']}: profit change {_money(p['change'])} over "
-                         f"{o['horizon_days']} days, likely range {_money(lo)} to {_money(hi)}, "
-                         f"beats the current plan in {o['probability_profit_improves_pct']}% of "
-                         "simulated futures.")
+            lines.append(f"- **{o['scenario_text']}**: expected profit {_money(p['change'])} over "
+                         f"{o['horizon_days']} days (likely range {_money(lo)} to {_money(hi)}); "
+                         f"probability it beats changing nothing: {o['probability_profit_improves_pct']}%.")
         pa, pb = safer["probability_profit_improves_pct"], other["probability_profit_improves_pct"]
         la, lb = safer["operating_profit"]["change_90pct_range"][0], other["operating_profit"]["change_90pct_range"][0]
         if (pa, la) == (pb, lb):
@@ -569,21 +568,18 @@ class OfflinePlanner:
     def _product_perf_text(out) -> str:
         if not out.get("available"):
             return "Offline analyst. " + out["reason"]
-        lines = [(f"Offline analyst (rule-based, no language model). Five tracked products, {out['period']} "
-                 "(SYNTHETIC records):")]
+        lines = ["Offline analyst (rule-based, no language model).",
+                 f"Your five main items, {out['period']}:"]
         for r in out["products"]:
-            lines.append(f"  {r['product']}: {r['units_sold']:,} units, revenue ${r['revenue']:,}, "
-                         f"gross profit ${r['gross_profit']:,} ({r['gross_margin_pct']}% gross margin); "
-                         f"forecast demand next 7 days {r['forecast_demand_next_7_days']:,} units; "
-                         f"stock covers {r['stock_days_of_supply']} days; stock-out risk "
-                         f"{r['stockout_risk_next_7_days_pct']}%.")
-        lines.append(f"Most profitable (gross profit): {out['most_profitable_by_gross_profit']}. "
-                     f"Best seller by revenue: {out['best_seller_by_revenue']}; most units: "
-                     f"{out['most_units_sold']}. Lowest gross margin: {out['lowest_gross_margin']}. "
-                     f"Highest stock-out risk: {out['highest_stockout_risk']}.")
-        lines.append("Gross profit is revenue minus ingredient cost (before labor, rent and other "
-                     "overhead). Demand forecasts are validated on synthetic history only; stock-out "
-                     "risk is simulated under the current ordering plan.")
+            lines.append(f"- **{r['product']}**: {r['units_sold']:,} orders sold, ${r['revenue']:,} in sales, "
+                         f"${r['gross_profit']:,} profit after ingredients ({r['gross_margin_pct']}% margin). "
+                         f"About {r['forecast_demand_next_7_days']:,} orders expected next week; stock lasts "
+                         f"{r['stock_days_of_supply']} days; sell-out risk {r['stockout_risk_next_7_days_pct']}%.")
+        lines.append(f"Most profitable: **{out['most_profitable_by_gross_profit']}**. Best seller by sales: "
+                     f"{out['best_seller_by_revenue']}; most orders: {out['most_units_sold']}. Lowest margin: "
+                     f"{out['lowest_gross_margin']}.")
+        lines.append("'Profit after ingredients' is before staff, rent and other costs. Orders expected next "
+                     "week are a forecast from your past sales.")
         return "\n".join(lines)
 
     @staticmethod
@@ -599,19 +595,19 @@ class OfflinePlanner:
                   "OUTSIDE the owner's approved limits: " + "; ".join(out["policy_violations"]) + ".")
         return "\n".join([
             "Offline analyst (rule-based, no language model).",
-            (f"Scenario: {out['scenario_text']}, next {out['horizon_days']} days "
-            f"({out['forecast_window'][0]} to {out['forecast_window'][1]}), versus the current plan."),
-            (f"Revenue {_money(r['baseline'])} -> {_money(r['scenario'])} (change {_money(r['change'])}); "
-            f"operating profit {_money(p['baseline'])} -> {_money(p['scenario'])} (change "
-            f"{_money(p['change'])}, 90% simulation range {_money(lo)} to {_money(hi)}; profit "
-            f"improves in {out['probability_profit_improves_pct']}% of simulated futures)."),
-            (f"Demand for the product {d['baseline']:,} -> {d['scenario']:,} units; units sold "
-            f"{u['baseline']:,} -> {u['scenario']:,}; stock-out risk {so['baseline']}% -> "
-            f"{so['scenario']}%. Operating cash flow change {_money(out['operating_cash_flow']['change'])}."),
+            (f"**{out['scenario_text']}**, next {out['horizon_days']} days ({out['forecast_window'][0]} to "
+            f"{out['forecast_window'][1]}), compared with changing nothing:"),
+            (f"- Expected profit: **{_money(p['change'])}** (most likely between {_money(lo)} and {_money(hi)}; "
+            f"better than changing nothing in {out['probability_profit_improves_pct']}% of our test runs)"),
+            f"- Sales: {_money(r['baseline'])} → {_money(r['scenario'])} ({_money(r['change'])})",
+            (f"- Orders for this item: {d['baseline']:,} → {d['scenario']:,}; units sold {u['baseline']:,} → "
+            f"{u['scenario']:,}"),
+            f"- Sell-out risk: {so['baseline']}% → {so['scenario']}%",
+            f"- Cash over the period: {_money(out['operating_cash_flow']['change'])}",
             policy, "Recommendation: " + out["recommendation"],
-            (f"Key assumption: {a['name']} {a['value']} (range {a['low']} to {a['high']}, "
-            f"{a['source']}). Simulated effects are assumptions, not proven causal effects. "
-            "Human approval required.")])
+            (f"How strongly customers react to price is our estimate ({a['value']}, between {a['low']} and "
+            f"{a['high']}), not measured from your sales. Not a guarantee; your approval is needed before any "
+            "change.")])
 
     @staticmethod
     def _profit_change_text(out) -> str:

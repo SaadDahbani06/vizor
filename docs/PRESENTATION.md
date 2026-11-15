@@ -9,7 +9,7 @@ demo never waits for a live Gemini reply: live replies have taken 2–3 minutes.
 ```bash
 # 1. Stop any old processes: Ctrl-C old messaging workers and old dashboards.
 cd ~/Desktop/main-street-decision-intelligence && source .venv/bin/activate
-git switch milestone-5.4-simple-analyst
+git switch milestone-5.5-premium-ui
 python -m decisiondesk.precompute                      # seconds when warm
 ./start.sh offline        # opens http://localhost:8501 in the browser
 ```
@@ -22,14 +22,14 @@ python -m decisiondesk.precompute                      # seconds when warm
 
 | Time | Click | Say |
 |---|---|---|
-| 0:00 | Overview | "This is Lone Star Taqueria, a made-up Austin restaurant with three years of demo records; the banner says so. The owner opens it in the morning and sees three numbers: sales this month **$36,704**, 7% more than last month; profit **$3,444**, about 9¢ of every dollar; and cash that covers this week's **$4,978** of bills." |
-| 0:15 | **What needs your attention** | "Yesterday was slower than a usual Friday: sales were **31%** below normal, and there were 34% fewer customers, which explains most of it. Nachos and quesadillas dropped even more. Each item says what to check next. It shows what moved, not why." |
-| 0:30 | **One idea to consider**, then **Try it in the Decision Lab** | "One idea: raise taco prices 5%. About **+$286** profit over the next four weeks. It could be anywhere from **−$5 to +$557**, and it came out ahead in **19 of 20** test runs." |
-| 0:50 | Scroll to **Before you decide** | "Before deciding: what could go wrong and what to check first. If customers react to price more strongly than we assumed, it turns into a loss (**−$72**). Nothing changes until the owner makes the change." |
-| 1:05 | Click **Supplier prices change**; drag to **+8%** | "Now the supplier raises prices 8%. Orders don't change, but profit drops by about **$1,820** this month." |
-| 1:20 | Click **Ask your analyst** (bottom right): **What if I raise tacos prices 5%?**, then type **What about 3% instead?**, then **Which is safer?** | "The analyst uses the same calculations and remembers the conversation: 3% gives about **+$171**, and it compares the two. Every number it says is checked." |
-| 1:45 | Click the **bell** → **Get these on my phone** | "The briefing and alerts can go to the owner's phone by iMessage, only after they opt in, and STOP always works." |
-| 1:55 | — | "The data is a demo and the price effects are assumptions. Connecting a real restaurant's item sales is next." |
+| 0:00 | Overview, top | "This is the owner's morning view. It's a demo business with sample data, labelled at the top. The briefing says it in one sentence: sales were lower yesterday, 31% below a usual Friday, mainly because fewer customers came in; two items sold less than usual; three bills, $4,978, are due this week." |
+| 0:15 | KPI cards | "Sales this month **$36,704**, up 7%. Profit **$3,444**. Cash **$168,169**, which covers this week's bills. Costs **$33,260**, and the card names the cost rising most. Inventory is healthy." |
+| 0:30 | **Opportunity** card | "One idea: raise taco prices 5%. Expected **+$286** over four weeks. *Very likely to help, though a loss is possible.* The bar shows the downside (**−$5**) and the upside (**+$557**). We never hide the downside." |
+| 0:45 | **Explore in Decision Lab** | "Before and after, side by side. Revenue barely moves, profit up 5%, taco orders down 5.5%. Main risks: if customers react to price more strongly than we assumed, it turns into a loss (**−$72**). The next step is a short price test. It needs the owner's approval; nothing happens automatically." |
+| 1:05 | Type **What if supplier costs rise 8%?**, then **Run** | "You can just type the question. Supplier prices up 8%: profit drops about **$1,820** this month, and it says plainly not to absorb it as is." |
+| 1:20 | **Ask AI** (bottom right): **Which product is making the most money?**, then the link **See your products** | "The assistant answers from the same calculations: every number is checked against the data. Its answers link straight to the right view." |
+| 1:40 | **Local Market** | "Our prices against nearby restaurants: tacos are 15% below the local middle, worth testing. Competitors' prices show position, not how our customers will react, and the app says so." |
+| 1:55 | — | "Behind this: validated forecasts, simulations with checked ranges, and number verification. The owner just sees what's happening and what to do. The data is a demo; connecting a real restaurant is next." |
 
 ## If asked
 

@@ -545,20 +545,24 @@ def recommend(ctx: ProductContext, sc: ProductScenario) -> dict:
     flips = [s for s in sens if best and np.sign(s["profit_change"]) != np.sign(best["profit_change"])]
     if best is None:
         text = (f"None of the tested { {x.product_id: x.name for x in PRODUCTS}[sc.product_id].lower()} "
-                f"actions improves expected {sc.horizon_days}-day profit; keeping the current plan is "
-                "the best tested option.")
+                f"options beats keeping your current plan over the next {sc.horizon_days} days.")
     else:
         lo, hi = best["profit_change_90pct_range"]
         name = {x.product_id: x.name for x in PRODUCTS}[sc.product_id].lower()
-        text = (f"Best tested {name} action: {best['action']} is projected to change "
-                f"{sc.horizon_days}-day operating profit by {_sm(best['profit_change'])} versus the "
-                f"current plan (90% simulation range {_sm(lo)} to {_sm(hi)}; better in "
-                f"{best['probability_profit_improves']:.0%} of simulated futures).")
+        edge = {"low": "customers react to price more strongly than we assumed",
+                "high": "customers react to price less than we assumed"}
+        text = (f"Best tested {name} option: {best['action']}, about {_sm(best['profit_change'])} profit over "
+                f"{sc.horizon_days} days versus changing nothing (most likely {_sm(lo)} to {_sm(hi)}; better in "
+                f"{best['probability_profit_improves']:.0%} of our test runs).")
         if best["units_sold_change"] < -0.5:
-            text += f" It may reduce units sold of this product by about {-best['units_sold_change']:,.0f}."
-        text += (" The result depends on the assumed price sensitivity and substitution; "
-                 + (f"it reverses if {flips[0]['assumption']} is at its {flips[0]['level']} bound."
-                    if flips else "it keeps its sign at every tested assumption bound."))
+            text += f" About {-best['units_sold_change']:,.0f} fewer {name} sold."
+        if flips:
+            f0 = flips[0]
+            cond = (edge[f0["level"]] if "elasticity" in f0["assumption"] else
+                    f"{f0['assumption'].replace('_', ' ')} is at its {f0['level']} bound")
+            text += f" It depends on how customers react: it would lose money if {cond}."
+        else:
+            text += " It stays positive across the customer reactions we tested."
     return {"recommended": best, "ranked": feasible,
             "outside_policy": [r for r in rows if not r["within_policy"]],
             "sensitivity": sens, "assumption_flips": flips, "text": text,
