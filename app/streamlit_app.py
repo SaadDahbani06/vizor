@@ -135,10 +135,13 @@ def seg(label: str, options: list, key: str, default=None, fmt=None, on_change=N
                     label_visibility="collapsed", on_change=on_change)
 
 
-def how(text: str, label: str = "How we estimated this") -> None:
-    n = st.session_state["_tip_n"] = st.session_state.get("_tip_n", 0) + 1
-    with st.container(key=f"tip_{n}"), st.popover(f"ⓘ {label}", width="content"):
-        st.markdown(text)
+def how(text: str, label: str = "How we estimated this", *, right: bool = True) -> None:
+    """Explanation on hover (no click, no extra text on the page)."""
+    st.markdown(T.hint(text, f"ⓘ {label}", right=right), unsafe_allow_html=True)
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"<[^>]+>", "", str(text))
 
 
 def weeks(h: int) -> str:
@@ -146,15 +149,12 @@ def weeks(h: int) -> str:
 
 
 def page_header(title: str, sub: str) -> None:
-    """Every page starts the same way: a title and one plain sentence."""
-    st.markdown(f"# {title}")
-    st.markdown(f'<div class="section-sub" style="font-size:15px;margin:4px 0 6px 0">{sub}</div>',
-                unsafe_allow_html=True)
+    """Every page starts the same way: a title; its description is on hover."""
+    st.markdown(f"# {T.esc(title)}{T.hint(_plain(sub))}", unsafe_allow_html=True)
 
 
 def section(title: str, sub: str = "") -> None:
-    st.markdown(f'<div class="section-title">{T.esc(title)}</div>'
-                + (f'<div class="section-sub">{T.esc(sub)}</div>' if sub else ""), unsafe_allow_html=True)
+    st.markdown(f'<div class="section-title">{T.esc(title)}{T.hint(sub) if sub else ""}</div>', unsafe_allow_html=True)
 
 
 def biz_name() -> str:
@@ -321,8 +321,7 @@ def analyst_panel() -> None:
     if getattr(agent, "last_fallback", None):
         st.caption("The AI model was unavailable, so the last answer came from offline mode.")
     if not chat:
-        st.markdown(f'<div class="chat-empty">How can I help with {T.esc(biz_name())} today?</div>'
-                    '<div class="soft">I answer from your own numbers and can test changes before you make them.</div>',
+        st.markdown(f'<div class="chat-empty">How can I help?{T.hint("I answer from your own numbers and can test changes before you make them. Every number is checked.")}</div>',
                     unsafe_allow_html=True)
         for j, q in enumerate(suggestions()):
             if st.button(q, key=f"suggest_{j}", width="stretch", disabled=bool(pending)):
@@ -439,8 +438,7 @@ def attention_bar() -> None:
     if not alerts:
         with st.container(key="card_attention_calm"):
             st.markdown('<div style="display:flex;gap:12px;align-items:flex-start"><div class="attn-icon"></div><div>'
-                        '<div class="attn-head">Nothing needs your attention today.</div>'
-                        '<div class="attn-sub">Sales, stock, costs and bills all look normal.</div></div></div>',
+                        '<div class="attn-head">Nothing needs your attention today.</div></div></div>',
                         unsafe_allow_html=True)
         return
     top = alerts[0]
@@ -450,8 +448,8 @@ def attention_bar() -> None:
         row[0].markdown(f'<div style="display:flex;gap:12px;align-items:flex-start"><div class="attn-icon"></div><div>'
                         f'<div class="eyebrow">Business attention · {T.esc(b["weekday"])} '
                         f'{pd.Timestamp(b["date"]):%b %d}</div>'
-                        f'<div class="attn-head">{T.esc(top["title"])}.</div>'
-                        f'<div class="attn-sub">{T.esc(top["detail"])} {T.esc(top["next_step"])}</div></div></div>',
+                        f'<div class="attn-head">{T.esc(top["title"])}'
+                        f'{T.hint(top["detail"] + " " + top["next_step"])}</div></div></div>',
                         unsafe_allow_html=True)
         with row[1]:
             for j, (label, page_, kw) in enumerate(alert_actions(top)):
@@ -459,8 +457,8 @@ def attention_bar() -> None:
                           kwargs=kw, width="stretch")
         for j, x in enumerate(more, start=1):
             r = st.columns([6.2, 2.4], vertical_alignment="center")
-            r[0].markdown(f'<div class="attn-sub" style="padding-left:22px">Also: <b>{T.esc(x["title"])}</b> · '
-                          f'{T.esc(x["detail"])}</div>', unsafe_allow_html=True)
+            r[0].markdown(f'<div class="attn-sub" style="padding-left:22px">{T.esc(x["title"])}'
+                          f'{T.hint(x["detail"] + " " + x["next_step"])}</div>', unsafe_allow_html=True)
             label, page_, kw = alert_actions(x)[0]
             r[1].button(f"{label} →", key=f"go_alert_{j}", on_click=go, args=(page_,), kwargs=kw)
 
@@ -468,12 +466,8 @@ def attention_bar() -> None:
 def page_overview() -> None:
     hour = datetime.now().hour
     hello = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
-    head = st.columns([5, 1.1], vertical_alignment="bottom")
-    with head[0]:
-        page_header(f"{hello}", f"{briefing_sentence()}")
-    with head[1]:
-        how(b["note"] + " We compare yesterday with the average of the same weekday over the past four weeks.",
-            "About the briefing")
+    page_header(hello, f"{briefing_sentence()} {b['note']} Yesterday is compared with the average of the same "
+                       "weekday over the past four weeks.")
     attention_bar()
 
     k = dash.kpis(s, "mtd")
@@ -483,44 +477,44 @@ def page_overview() -> None:
     costs_up = sorted([d for d in pc["drivers"] if d["driver"] != "Revenue" and d["profit_effect"] < -1],
                       key=lambda d: d["profit_effect"])
     bills = b.get("bills_due_7d_total") or 0.0
-    section("How you're doing", f"This month so far ({k['period_label']}) compared with the same days last month")
+    section("This month", f"{k['period_label']}, compared with the same days last month ({k['comparison_label']}).")
     r1 = st.columns(3, gap="medium")
     with r1[0], st.container(key="kpi_revenue"):
         st.markdown(T.kpi_card("Revenue", T.money(rev["value"]), delta_html=T.delta(rev["change_pct"]),
-                               sub="vs same days last month",
-                               tooltip=f"All sales recorded {k['period_label']}, compared with {k['comparison_label']}."),
-                    unsafe_allow_html=True)
-        st.button("Revenue details →", key="go_revenue", on_click=go, args=("My Business",),
+                               tooltip=f"All sales recorded {k['period_label']}. The change compares with "
+                                       f"{k['comparison_label']}."), unsafe_allow_html=True)
+        st.button("Details →", key="go_revenue", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Sales & profit"})
     tint = "__tpos" if (prof["value"] or 0) > 0 and prof["margin_pct"] >= prof["previous_margin_pct"] else \
         "__tneg" if (prof["value"] or 0) < 0 else ""
     with r1[1], st.container(key="kpi_profit" + tint):
         st.markdown(T.kpi_card("Operating profit", T.money(prof["value"]), delta_html=T.delta(prof["change_pct"]),
-                               sub=f"{prof['margin_pct']:.1f}% of sales (was {prof['previous_margin_pct']:.1f}%)",
-                               tooltip="Sales minus all costs (ingredients, staff, rent, everything else), before taxes "
-                                       "and loan repayments."), unsafe_allow_html=True)
-        st.button("What drives profit →", key="go_profit", on_click=go, args=("My Business",),
+                               sub=f"{prof['margin_pct']:.1f}% margin",
+                               tooltip=f"Sales minus all costs (ingredients, staff, rent, everything else), before taxes "
+                                       f"and loan repayments. Margin {prof['margin_pct']:.1f}% of sales, was "
+                                       f"{prof['previous_margin_pct']:.1f}% last month."), unsafe_allow_html=True)
+        st.button("Details →", key="go_profit", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Costs"})
     ok = c["value"] is not None and c["value"] >= bills
     with r1[2], st.container(key="kpi_cash" + ("__tblue" if ok else "__tneg")):
         st.markdown(T.kpi_card("Cash available", T.money(c["value"]),
                                delta_html=T.status("Covers this week's bills" if ok else "Below this week's bills",
                                                    "pos" if ok else "neg"),
-                               sub="<br>runway not a concern: cash flow is positive" if c.get("runway_days") is None
-                               else f"<br>about {c['runway_days']:.0f} days of runway",
                                tooltip="Cash in your records at the end of yesterday: opening balance plus all money in "
-                                       "and out (including owner draws)."), unsafe_allow_html=True)
-        st.button("Cash outlook →", key="go_cash", on_click=go, args=("My Business",),
+                                       "and out (including owner draws). "
+                                       + ("Cash flow is positive, so runway is not a concern." if c.get("runway_days") is None
+                                          else f"About {c['runway_days']:.0f} days of runway.")), unsafe_allow_html=True)
+        st.button("Details →", key="go_cash", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Cash & bills"})
     r2 = st.columns(3, gap="medium")
     up = costs_up[0] if costs_up else None
     with r2[0], st.container(key="kpi_expenses" + ("__twarn" if (exp["change_pct"] or 0) > 5 else "")):
         st.markdown(T.kpi_card("Expenses", T.money(exp["value"]), delta_html=T.delta(exp["change_pct"], good_when_up=False),
-                               sub=(f"Rising most: {up['driver'].replace('Ingredients: ', '').lower()} "
-                                    f"(+{T.money(-up['profit_effect'])} in 4 weeks)" if up else "No cost rose notably"),
-                               tooltip="All costs recorded this month. 'Rising most' compares the last 4 weeks with the "
-                                       "4 weeks before."), unsafe_allow_html=True)
-        st.button("Expense breakdown →", key="go_expenses", on_click=go, args=("My Business",),
+                               tooltip="All costs recorded this month. "
+                                       + (f"Rising most: {up['driver'].replace('Ingredients: ', '').lower()} "
+                                          f"(+{T.money(-up['profit_effect'])} in the last 4 weeks vs the 4 before)."
+                                          if up else "No cost rose notably.")), unsafe_allow_html=True)
+        st.button("Details →", key="go_expenses", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Costs"})
     low = inv.get("low_stock") or []
     risky = []
@@ -533,10 +527,10 @@ def page_overview() -> None:
                  T.status(f"{risky[0]} may sell out", "warn") if risky else T.status("Healthy", "pos"))
         nd = inv.get("next_delivery_in_days")
         st.markdown(T.kpi_card("Inventory health", T.money(inv["value"]), delta_html=state,
-                               sub=f"<br>on hand · next delivery in {nd} days" if nd else "<br>on hand",
                                tooltip="Ingredients on hand at today's cost. 'Healthy' means every item should last until "
-                                       "the next delivery at the expected pace."), unsafe_allow_html=True)
-        st.button("Stock levels →", key="go_inventory", on_click=go, args=("My Business",),
+                                       "the next delivery at the expected pace"
+                                       + (f"; next delivery in {nd} days." if nd else ".")), unsafe_allow_html=True)
+        st.button("Details →", key="go_inventory", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Stock"})
     with r2[2], st.container(key="kpi_bills" + ("__twarn" if not ok else "")):
         if li.get("payables") is None:
@@ -545,10 +539,10 @@ def page_overview() -> None:
             n_b = len(b["bills_due_7d"])
             st.markdown(T.kpi_card("Upcoming obligations", T.money(bills),
                                    delta_html=T.status(f"{n_b} bill{'s' if n_b != 1 else ''} due in 7 days", "neutral"),
-                                   sub=f"<br>{T.money(li['due_14d'])} due within 2 weeks incl. supplier invoices",
-                                   tooltip="Scheduled bills from your bill history plus unpaid supplier invoices. Loan "
-                                           "principal is not in the data."), unsafe_allow_html=True)
-        st.button("Bills →", key="go_liabilities", on_click=go, args=("My Business",),
+                                   tooltip=f"Scheduled bills due in the next 7 days. Including unpaid supplier invoices, "
+                                           f"{T.money(li['due_14d'])} is due within 2 weeks. Loan principal is not in "
+                                           "the data."), unsafe_allow_html=True)
+        st.button("Details →", key="go_liabilities", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Cash & bills"})
 
     left, right = st.columns([1.7, 1], gap="medium")
@@ -630,18 +624,17 @@ def opportunity_card() -> None:
     a = b.get("action")
     st.markdown('<div class="eyebrow brand">Recommended decision to review</div>', unsafe_allow_html=True)
     if a is None or not a.get("impact"):
-        st.markdown('<div class="idea">Test a change before you make it</div><div class="plain">Prices, orders, '
-                    'supplier costs or a stock budget: see the likely effect on profit and cash first.</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div class="idea">Test a change before you make it'
+                    + T.hint("Prices, orders, supplier costs or a stock budget: see the likely effect on profit and "
+                             "cash first.") + '</div>', unsafe_allow_html=True)
         st.button("Open the Decision Lab", key="cta_lab", on_click=go, args=("Decision Lab",))
         return
     i = a["impact"]
-    st.markdown(f'<div class="idea">{T.esc(plain_action(a))}</div>', unsafe_allow_html=True)
+    risk = (a["risks"][-1] if len(a["risks"]) > 1 else a["risks"][0]) if a.get("risks") else ""
+    st.markdown(f'<div class="idea">{T.esc(plain_action(a))}'
+                f'{T.hint("Why: " + a["why"] + (" Key risk: " + risk if risk else ""))}</div>', unsafe_allow_html=True)
     impact_block(i["profit_change"], i["range_90"][0], i["range_90"][1], i["probability_better_pct"] / 100,
                  i["horizon_days"])
-    st.markdown(f'<div class="soft"><b>Why:</b> {T.esc(a["why"])}</div>'
-                + (f'<div class="soft"><b>Key risk:</b> {T.esc(a["risks"][-1] if len(a["risks"]) > 1 else a["risks"][0])}</div>'
-                   if a.get("risks") else ""), unsafe_allow_html=True)
     sc = a["scenario"]
     b1, b2 = st.columns([1.5, 1], vertical_alignment="center")
     b1.button("Explore in Decision Lab", key="cta_brief_lab", on_click=go, args=("Decision Lab",),
@@ -689,17 +682,15 @@ def section_sales(ctx, stop) -> None:
         y = b["yesterday"]
         with st.container(key="card_investigate_sales"):
             st.markdown(f'<div class="eyebrow">Why this was flagged</div>'
-                        f'<div class="idea">{T.esc(inv_["title"])}</div>'
-                        f'<div class="plain">{T.esc(inv_["detail"])}</div>', unsafe_allow_html=True)
+                        f'<div class="idea">{T.esc(inv_["title"])}'
+                        f'{T.hint(inv_["detail"] + " Customers yesterday: " + str(y["guests"]) + " (usual about " + format(y["guests_typical"], ".0f") + "). This shows what changed, not why: weather, events and staffing are not in the data.")}</div>',
+                        unsafe_allow_html=True)
             rows = [(p["product"], f"{p['units_typical']:.0f}", f"{p['units_sold']}",
                      T.delta(p["change_pct"]) if p["change_pct"] is not None else "") for p in b["products"]]
             if rows:
                 st.markdown(T.before_after(rows).replace("Today&#x27;s plan", "Usual " + T.esc(b["weekday"]))
                             .replace("Today's plan", "Usual " + T.esc(b["weekday"]))
                             .replace("With your change", "Yesterday"), unsafe_allow_html=True)
-            st.markdown(f'<div class="soft">Customers yesterday: {y["guests"]} (usual about {y["guests_typical"]:.0f}). '
-                        'This shows what changed, not why: weather, events and staffing are not in the data.</div>',
-                        unsafe_allow_html=True)
             c1, c2, _ = st.columns([1.2, 1, 3])
             c1.button("Clear", key="act2_inv_clear", on_click=lambda: st.session_state.update(investigate=None))
             if c2.button("Ask AI", key="act2_inv_sales_ask"):
@@ -779,21 +770,22 @@ def section_products(ctx) -> None:
     st.session_state.setdefault("prod_pick", t.iloc[0]["product"])
     if st.session_state.get("prod_view"):
         return product_detail(ctx, t)
-    st.markdown('<div class="soft">Last 4 weeks. Select an item for its detail view.</div>', unsafe_allow_html=True)
     for chunk in (t.iloc[:3], t.iloc[3:]):
         cols = st.columns(3, gap="medium")
         for col, (_, p) in zip(cols, chunk.iterrows()):
             keep = p["price"] - p["unit_cost"]
             stat = (T.status("May sell out this week", "warn") if p["stockout_risk_7d"] >= 0.25
                     else T.status("Stock OK", "pos"))
+            card_tip = (f"Last 4 weeks: {p['units_sold']:,.0f} sold, {T.money(p['revenue'])} in sales. You keep "
+                        f"{T.money(keep, 2)} per order after ingredients ({p['gross_margin_pct']:.0f}% margin). About "
+                        f"{p['forecast_demand_7d']:,.0f} orders expected next week.")
             with col, st.container(key=f"card_prod_{p['product_id']}"):
                 st.markdown(f'<div style="display:flex;justify-content:space-between;align-items:center">'
                             f'<div class="prod-name">{T.esc(p["product"])}</div>{stat}</div>'
                             f'<div class="prod-price">{T.money(p["price"], 2)}</div>'
-                            f'<div class="plain">You keep <b>{T.money(keep, 2)}</b> per order after ingredients '
-                            f'({p["gross_margin_pct"]:.0f}%)</div>'
-                            f'<div class="soft">{p["units_sold"]:,.0f} sold · {T.money(p["revenue"])} in sales · '
-                            f'~{p["forecast_demand_7d"]:,.0f} orders expected next week</div>', unsafe_allow_html=True)
+                            f'<div class="soft">Keeps <b>{T.money(keep, 2)}</b>/order · {p["units_sold"]:,.0f} sold'
+                            f'{T.hint(card_tip)}</div>',
+                            unsafe_allow_html=True)
                 st.button("View details →", key=f"go_prod_{p['product_id']}", on_click=go, args=("My Business",),
                           kwargs={"prod_pick": p["product"], "seg_mb_section": "Products", "prod_view": True})
     section("All items")
@@ -834,22 +826,22 @@ def product_detail(ctx, table: pd.DataFrame) -> None:
     if inv_.get("product") == name:
         investigate_panel(ctx, name, inv_)
     cards = [("Price", T.money(row["price"], 2), "", "Current menu price."),
-             ("Kept per order", T.money(row["price"] - row["unit_cost"], 2), f"{row['gross_margin_pct']:.0f}% margin",
-              "Price minus ingredient cost, before staff, rent and other costs."),
-             ("Sold, last 4 weeks", f"{row['units_sold']:,.0f}", T.money(row["revenue"]) + " in sales", ""),
-             ("Expected next week", f"{row['forecast_demand_7d']:,.0f} orders", "forecast from your sales history",
+             ("Kept per order", T.money(row["price"] - row["unit_cost"], 2), "",
+              f"Price minus ingredient cost ({row['gross_margin_pct']:.0f}% margin), before staff, rent and other costs."),
+             ("Sold, last 4 weeks", f"{row['units_sold']:,.0f}", "", f"{T.money(row['revenue'])} in sales."),
+             ("Expected next week", f"{row['forecast_demand_7d']:,.0f} orders", "",
               "Forecast based on your historical sales, by day of the week and season."),
-             ("Stock", f"{row['sellable_units']:,.0f} portions", f"lasts about {row['days_of_supply']:.1f} days"
-              + (f" · may run out {so[5:]}" if so else ""), "What the ingredients on hand can make before the next delivery.")]
+             ("Stock", f"{row['sellable_units']:,.0f} portions", "",
+              f"What the ingredients on hand can make: about {row['days_of_supply']:.1f} days"
+              + (f"; may run out {so[5:]}." if so else "."))]
     cols = st.columns(5, gap="small")
     for j, (col, (lab_, v, sub, tt)) in enumerate(zip(cols, cards)):
         with col, st.container(key=f"kpi_pd_{j}"):
             st.markdown(T.kpi_card(lab_, v, sub=sub, tooltip=tt), unsafe_allow_html=True)
     with st.container(key="panel_pd"):
-        section("Expected orders vs what you can make", "Next 4 weeks, with your usual Monday and Thursday deliveries")
+        section("Expected orders vs what you can make", "Next 4 weeks, with your usual Monday and Thursday deliveries. "
+                "Blue: orders we expect. Orange: what your stock lets you make. Red marks: days it might run short.")
         st.altair_chart(charts.demand_supply(views.demand_supply_frame(b28, pid), title=""), width="stretch")
-        st.markdown('<div class="soft">Blue: orders we expect. Orange: what your stock lets you make. Red marks: days '
-                    'it might run short.</div>', unsafe_allow_html=True)
     s_ = ctx.history.sales
     ps = s_[s_["product_id"] == pid].tail(120)
     left, right = st.columns(2, gap="medium")
@@ -879,8 +871,10 @@ def investigate_panel(ctx, name: str, alert: dict) -> None:
     last = ps["date"].max()
     same = ps[ps["date"].dt.dayofweek == last.dayofweek]
     with st.container(key="card_investigate"):
+        last_days = ", ".join(f"{int(v)}" for v in same["units_sold"])
         st.markdown(f'<div class="eyebrow">Why this was flagged</div>'
-                    f'<div class="idea">{T.esc(alert["title"])}</div><div class="plain">{T.esc(alert["detail"])}</div>',
+                    f'<div class="idea">{T.esc(alert["title"])}'
+                    f'{T.hint(alert["detail"] + f" Last {len(same)} {last.day_name()}s: {last_days}. This shows what changed, not why: weather, events or a menu change are not in the data.")}</div>',
                     unsafe_allow_html=True)
         d = ps[["date", "units_sold"]].rename(columns={"units_sold": "Orders sold"})
         d["Typical for that weekday"] = ps.groupby(ps["date"].dt.dayofweek)["units_sold"].transform(
@@ -888,9 +882,6 @@ def investigate_panel(ctx, name: str, alert: dict) -> None:
         st.altair_chart(charts.line_hover(d, {"Orders sold": "Orders sold", "Typical for that weekday": "Typical for that weekday"},
                                           colors={"Orders sold": T.INK, "Typical for that weekday": "#B9B3A6"},
                                           dashed=("Typical for that weekday",), y_format=",.0f", height=200), width="stretch")
-        st.markdown(f'<div class="soft">Last {len(same)} {last.day_name()}s: '
-                    + ", ".join(f"{int(v)}" for v in same["units_sold"]) + ". This shows what changed, not why: "
-                    "weather, events or a menu change are not in the data.</div>", unsafe_allow_html=True)
         c1, c2, c3, _ = st.columns([1.3, 1.3, 1.1, 1.6])
         c1.button("Simulate a price change", key="act_inv_price", on_click=go, args=("Decision Lab",),
                   kwargs=lab_link(name, "Change a price"))
@@ -913,12 +904,11 @@ def section_costs() -> None:
     with right, st.container(key="panel_drivers"):
         ch = pc["profit"]["change"]
         section("What changed your profit", f"Last 4 weeks: {T.money(pc['profit']['current'])}, "
-                f"{T.signed_money(ch)} vs the 4 weeks before")
+                f"{T.signed_money(ch)} vs the 4 weeks before. Bars to the right helped profit; bars to the left "
+                "reduced it.")
         dfd = pd.DataFrame(pc["drivers"]).head(8)
         dfd["abs_effect"] = dfd["profit_effect"].abs()
         st.altair_chart(charts.driver_bars(dfd), width="stretch")
-        st.markdown('<div class="soft">Bars to the right helped profit; bars to the left reduced it.</div>',
-                    unsafe_allow_html=True)
 
 
 def section_stock(ctx, start, stop) -> None:
@@ -930,11 +920,10 @@ def section_stock(ctx, start, stop) -> None:
     nd = dash.next_delivery_days(ctx.origin)
     left, right = st.columns([1.4, 1], gap="medium")
     with left, st.container(key="panel_inv"):
-        section("Will anything sell out before the next delivery?", f"Next delivery in {nd} days")
+        section("Will anything sell out before the next delivery?", f"Next delivery in {nd} days. Bar: how many you "
+                "can make from what is on the shelf. Black mark: orders expected before the next delivery. Colour: how "
+                "likely it is to sell out.")
         st.altair_chart(charts.inventory_health(views.inventory_frame(t, nd)), width="stretch")
-        st.markdown('<div class="soft">Bar: how many you can make from what is on the shelf. Black mark: orders '
-                    'expected before the next delivery. Colour: how likely it is to sell out.</div>',
-                    unsafe_allow_html=True)
     with right, st.container(key="panel_ingr_now"):
         section("Ingredients on hand", f"{ctx.origin:%b %d}")
         items = pd.DataFrame(inv["items"])
@@ -1006,8 +995,9 @@ def section_outlook() -> None:
     with st.container(key="panel_fc"):
         st.markdown(f'<div class="eyebrow">{T.esc(names[target])} · next 4 weeks</div>'
                     f'<div class="big-number">{f(fc["point_total"])}</div>'
-                    f'<div class="plain">Most likely between {f(lo)} and {f(hi)}. Forecast based on your historical '
-                    'business performance, by day of the week and season.</div>', unsafe_allow_html=True)
+                    f'<div class="soft">Likely {f(lo)} – {f(hi)}'
+                    f'{T.hint("Forecast based on your historical business performance, by day of the week and season.")}'
+                    '</div>', unsafe_allow_html=True)
         from decisiondesk.decision.baseline import make_draws
         bundle = s.bundle((target,))
         tf = bundle.targets[target]
@@ -1044,9 +1034,9 @@ def page_local_market() -> None:
     fr = mk.freshness(m, today)
     checked = pd.Timestamp(fr["newest_verification"])
     st.markdown(f'{T.status("Prices up to date" if not fr["stale"] else "Prices need re-checking", "pos" if not fr["stale"] else "warn")}'
-                f' <span class="soft">&nbsp;Checked {checked:%b %d, %Y} from {fr["restaurants_with_verified_prices"]} '
-                f'Austin restaurants\' own menus · next check by {pd.Timestamp(fr["next_reverification_due"]):%b %d}</span>',
-                unsafe_allow_html=True)
+                + T.hint(f"Checked {checked:%b %d, %Y} by hand from {fr['restaurants_with_verified_prices']} Austin "
+                         f"restaurants' own menus. Next check by {pd.Timestamp(fr['next_reverification_due']):%b %d}. "
+                         "Public data, kept apart from your records."), unsafe_allow_html=True)
     ov = {pid: mk.compare(pid, float(ctx.prices[i]), market=m, as_of=today) for i, pid in enumerate(PRODUCT_IDS)}
 
     section("Your prices vs nearby", "Same serving only: for example, three single tacos count as one plate of three")
@@ -1056,7 +1046,7 @@ def page_local_market() -> None:
             if n_:
                 st.markdown('<div class="hr"></div>', unsafe_allow_html=True)
             row = st.columns([1.2, 0.9, 3.2, 1.8, 1.3], vertical_alignment="center")
-            row[0].markdown(f'<div class="row-title">{T.esc(name)}</div><div class="soft">{T.esc(c["our_serving"])}</div>',
+            row[0].markdown(f'<div class="row-title">{T.esc(name)}{T.hint("Compared as: " + c["our_serving"])}</div>',
                             unsafe_allow_html=True)
             row[1].markdown(f'<div class="prod-price" style="font-size:20px">${c["our_price"]:.2f}</div>', unsafe_allow_html=True)
             if c["sufficient"]:
@@ -1098,8 +1088,7 @@ def page_local_market() -> None:
         cols = st.columns(len(ideas[:2]), gap="medium")
         for col, (pid, title, body, v) in zip(cols, ideas[:2]):
             with col, st.container(key=f"card_idea_{pid}"):
-                st.markdown(f'<div class="idea">{T.esc(title)}</div><div class="plain">{T.esc(body)}</div>',
-                            unsafe_allow_html=True)
+                st.markdown(f'<div class="idea">{T.esc(title)}{T.hint(body)}</div>', unsafe_allow_html=True)
                 st.button("Test it in the Decision Lab →", key=f"go_idea_{pid}", on_click=go, args=("Decision Lab",),
                           kwargs=lab_link(views.NAMES[pid], sl_price=v))
 
@@ -1119,15 +1108,15 @@ def page_local_market() -> None:
             pos = {"within the comparable range": "in the usual range",
                    "below the comparable range": "below everyone we checked",
                    "above the comparable range": "above everyone we checked"}[c["position"]]
-            st.markdown(f'<div class="idea">Your {T.esc(c["our_serving"])}: ${our:.2f}</div>'
-                        f'<div class="plain">{c["peer_count"]} nearby restaurants charge ${c["peer_min"]:.2f} to '
-                        f'${c["peer_max"]:.2f} for the same thing (middle price ${c["peer_median"]:.2f}). Your price is '
-                        f'{pos}.</div>', unsafe_allow_html=True)
+            detail = (f"{c['peer_count']} nearby restaurants charge ${c['peer_min']:.2f} to ${c['peer_max']:.2f} for "
+                      f"the same thing (middle price ${c['peer_median']:.2f}). Your price is {pos}. ")
+            st.markdown(f'<div class="idea">Your price: ${our:.2f}{T.hint(detail + mk.NOT_A_RECOMMENDATION)}</div>'
+                        f'<div class="soft">Nearby ${c["peer_min"]:.2f}–${c["peer_max"]:.2f} · middle '
+                        f'${c["peer_median"]:.2f} · {pos}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="idea">Your {T.esc(c["our_serving"])}: ${our:.2f}</div>'
-                        f'<div class="plain">We found only {c["peer_count"]} restaurant(s) selling the same serving: not '
-                        'enough to compare fairly.</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="soft">{T.esc(mk.NOT_A_RECOMMENDATION)}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="idea">Your price: ${our:.2f}'
+                        f'{T.hint(mk.NOT_A_RECOMMENDATION)}</div><div class="soft">Not enough comparable menus '
+                        f'({c["peer_count"]} found)</div>', unsafe_allow_html=True)
         if c["comparables"]:
             df = pd.DataFrame(c["comparables"])
             st.altair_chart(charts.price_position(df, our, c.get("peer_median"), label=c["our_serving"]), width="stretch")
@@ -1137,9 +1126,9 @@ def page_local_market() -> None:
                                         "listed_price": st.column_config.NumberColumn("Menu price", format="$%.2f"),
                                         "comparable_price": st.column_config.NumberColumn("Same serving as yours", format="$%.2f"),
                                         "verified_date": "Checked", "source_url": st.column_config.LinkColumn("Menu", display_text="View menu")})
-        for w in c["warnings"]:
-            if "Small sample" not in w:
-                st.caption(w)
+        notes = [w for w in c["warnings"] if "Small sample" not in w]
+        if notes:
+            st.markdown(T.hint(" ".join(notes), "ⓘ Notes on this comparison"), unsafe_allow_html=True)
     b1, b2, b3 = st.columns(3)
     options = [("Lower 5%", -5.0), ("Raise 5%", 5.0)]
     if c["sufficient"] and abs(c["difference_vs_median_pct"]) <= 30:
@@ -1270,8 +1259,8 @@ def lab(ctx) -> None:
                 p = st.session_state["sl_price"]
                 new_price = round(ctx.prices[i] * (1 + p / 100), 2)
                 tag = (T.status("Above your limit", "neg") if p > cap + 1e-9 else T.status("within your limit", "pos") if p else "")
-                st.markdown(f'<div class="plain">{T.money(ctx.prices[i], 2)} → <b>{T.money(new_price, 2)}</b> &nbsp;{tag}</div>'
-                            f'<div class="soft">Your limit: raise prices by at most {cap:g}% at a time.</div>',
+                st.markdown(f'<div class="plain">{T.money(ctx.prices[i], 2)} → <b>{T.money(new_price, 2)}</b> &nbsp;{tag}'
+                            f'{T.hint(f"Your limit: raise prices by at most {cap:g}% at a time.")}</div>',
                             unsafe_allow_html=True)
             if "sl_supply" in show:
                 st.slider(f"Regular {name.lower()} ingredient orders (%)", -100.0, 100.0, step=5.0, key="sl_supply")
@@ -1312,8 +1301,7 @@ def lab(ctx) -> None:
         if sc.is_baseline:
             st.markdown(f'<div class="eyebrow">Your current plan · {weeks(h)}</div>'
                         f'<div class="big-number">{T.money(cmp_["profit"]["baseline"])}</div>'
-                        '<div class="plain">Expected profit if nothing changes. Move a slider or ask a what-if above '
-                        'to compare a change.</div>', unsafe_allow_html=True)
+                        '<div class="soft">Expected profit if nothing changes</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="soft">{T.esc(sc.describe()).capitalize()}</div>', unsafe_allow_html=True)
             if not cmp_["within_policy"]:
@@ -1340,14 +1328,14 @@ def lab(ctx) -> None:
         if sc.is_baseline:
             st.markdown('<div class="eyebrow brand">Best option we found</div>', unsafe_allow_html=True)
             if best:
-                st.markdown(f'<div class="idea">{T.esc(best["action"])}</div>'
-                            f'<div class="plain">About <b>{T.signed_money(best["profit_change"])}</b> profit over the '
-                            f'{weeks(h)}. {T.esc(T.confidence_words(best["probability_profit_improves"], *best["profit_change_90pct_range"]))}</div>',
+                st.markdown(f'<div class="idea">{T.esc(best["action"])}'
+                            f'{T.hint(T.confidence_words(best["probability_profit_improves"], *best["profit_change_90pct_range"]))}</div>'
+                            f'<div class="plain"><b>{T.signed_money(best["profit_change"])}</b> profit, {weeks(h)}</div>',
                             unsafe_allow_html=True)
                 st.button("Try this option", key="cta_try_best", on_click=go, args=("Decision Lab",),
                           kwargs=lab_link_for(best["scenario"]))
             else:
-                st.markdown(f'<div class="plain">{T.esc(rec["text"])}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="plain">Keep your current plan{T.hint(rec["text"])}</div>', unsafe_allow_html=True)
         else:
             from decisiondesk.briefing import decision_checklist
             from decisiondesk.decision.product_scenario import sensitivity
@@ -1360,28 +1348,28 @@ def lab(ctx) -> None:
             step = (a["verify"][0] if gain else
                     "Don't make this change as it stands: it is expected to reduce profit." if cmp_["profit"]["change"] < 0
                     else "Stay within your own price limit, or change the limit deliberately first.")
-            items = [("1. What to do", what), ("2. Why it may help", a["why"]),
-                     ("3. Estimated impact", (f"About {T.signed_money(cmp_['profit']['change'])} profit over the {weeks(h)} "
-                                             f"(downside {T.signed_money(lo)}, upside {T.signed_money(hi)}).")),
-                     ("4. Main risks", " ".join(a["risks"][:2]) or "No major risks found in our tests."),
-                     ("5. Check before acting", step)]
-            st.markdown("".join(f'<div class="check-head">{T.esc(t_)}</div><div class="plain">{T.esc(v_)}</div>'
-                                for t_, v_ in items), unsafe_allow_html=True)
-            if best and not sc.ingredient_cost_change_pct and best["scenario"] != asdict(sc):
-                st.markdown(f'<div class="soft" style="margin-top:6px">Best tested {T.esc(name.lower())} option: '
-                            f'{T.esc(best["action"])} (about {T.signed_money(best["profit_change"])}).</div>',
-                            unsafe_allow_html=True)
+            better = (f" Best tested {name.lower()} option: {best['action']} (about "
+                      f"{T.signed_money(best['profit_change'])})." if best and not sc.ingredient_cost_change_pct
+                      and best["scenario"] != asdict(sc) else "")
+            st.markdown(f'<div class="check-head">What to do</div><div class="plain"><b>{T.esc(what)}</b></div>'
+                        f'<div class="check-head">Expected impact</div><div class="plain">'
+                        f'<b>{T.signed_money(cmp_["profit"]["change"])}</b> profit, {weeks(h)} '
+                        f'<span class="soft">({T.signed_money(lo)} to {T.signed_money(hi)})</span></div>'
+                        f'<div style="margin-top:10px">{T.hint("Why it may help: " + a["why"] + better, "ⓘ Why it may help")}'
+                        f' &nbsp; {T.hint("Main risks: " + (" ".join(a["risks"][:3]) or "No major risks found in our tests."), "ⓘ Main risks")}'
+                        f' &nbsp; {T.hint("What to check: " + step, "ⓘ What to check", right=True)}</div>',
+                        unsafe_allow_html=True)
             with st.expander("Full checklist"):
                 checklist(a, key="lab_chk")
             if gain and not sc.ingredient_cost_change_pct:
                 ack = st.checkbox("I've reviewed the risks and checks", key="lab_ack")
                 if st.button("Approve for my records", key="cta_approve", disabled=not ack, width="stretch"):
                     _record_decision(a, cmp_)
-                st.caption("Approval records your decision. Nothing is changed automatically: you update the menu, "
-                           "POS or supplier order yourself.")
+                st.markdown(T.hint("Approval records your decision. Nothing is changed automatically: you update "
+                                   "the menu, POS or supplier order yourself.", "ⓘ What approval means"),
+                            unsafe_allow_html=True)
             else:
-                st.markdown('<div class="soft" style="margin-top:6px"><b>Needs your approval.</b> Nothing changes '
-                            'automatically.</div>', unsafe_allow_html=True)
+                st.markdown('<div class="soft" style="margin-top:6px">Needs your approval</div>', unsafe_allow_html=True)
             if st.session_state.get("lab_approved"):
                 st.success(st.session_state["lab_approved"])
         e1, e2 = st.columns(2)

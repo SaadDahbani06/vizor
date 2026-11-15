@@ -81,11 +81,11 @@ def test_cards_alerts_and_opportunity_navigate(at):
     assert not at.exception
 
 
-def test_estimates_explain_themselves_on_request(at):
-    tips = [p for p in at.get("popover") if "ⓘ" in p.proto.popover.label]
-    assert len(tips) >= 2
-    text = " ".join(m.value for p in tips for m in p.markdown)
-    assert "9 in 10 runs" in text and "-$5" in text and "+$557" in text and "Not a guarantee" in text
+def test_estimates_explain_themselves_on_hover(at):
+    t = md(at)
+    assert t.count('class="hint') >= 8  # explanations live in hover tips, not on the page
+    assert "9 in 10 runs" in t and "-$5" in t and "+$557" in t and "Not a guarantee" in t
+    assert "Rising most:" in t and "Key risk:" in t  # moved into tips, still available
 
 
 def test_my_business_sections_and_product_detail(at):
@@ -123,8 +123,8 @@ def test_decision_lab_before_and_after(at):
     assert "within your limit" in t and "Profit impact" in t and "+$286" in t
     assert "Today&#x27;s plan" in t or "Today's plan" in t
     assert "With your change" in t and "Tacos orders (demand)" in t
-    for step in ("Review action", "1. What to do", "2. Why it may help", "3. Estimated impact", "4. Main risks",
-                 "5. Check before acting"):
+    for step in ("Review action", "What to do", "Expected impact", "ⓘ Why it may help", "ⓘ Main risks",
+                 "ⓘ What to check"):
         assert step in t, step
     assert any("assumption" in c.label for c in at.checkbox)
     at.radio(key="seg_sl_mode").set_value("Order more or less").run()

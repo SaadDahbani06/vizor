@@ -81,7 +81,7 @@ h4 {{ font-size: 1.05rem !important; font-weight: 600 !important; }}
     background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 20px; }}
 [class*="st-key-kpi_"] [data-testid="stVerticalBlock"], [class*="st-key-card_prod"] [data-testid="stVerticalBlock"] {{ gap: .35rem; }}
 .st-key-kpi_revenue, [class*="st-key-kpi_profit"], [class*="st-key-kpi_cash"], [class*="st-key-kpi_expenses"],
-[class*="st-key-kpi_inventory"], [class*="st-key-kpi_bills"] {{ min-height: 168px; }}
+[class*="st-key-kpi_inventory"], [class*="st-key-kpi_bills"] {{ min-height: 0; }}
 .st-key-card_attention {{ border-left: 4px solid #E3A008 !important; }}
 .st-key-card_attention_calm {{ border-left: 4px solid var(--pos) !important; }}
 
@@ -94,7 +94,7 @@ h4 {{ font-size: 1.05rem !important; font-weight: 600 !important; }}
 .section-sub {{ font: 500 13.5px 'Inter'; color: var(--muted); margin-top: 2px; }}
 .kpi-label {{ font: 500 13px 'Inter'; color: var(--muted); display:flex; align-items:center; gap:6px; }}
 .kpi-value {{ font: 700 28px/1.15 'Inter'; letter-spacing: -0.02em; margin: 6px 0 4px 0; color: var(--ink); }}
-.kpi-sub {{ font: 500 13px/1.5 'Inter'; color: var(--muted); }}
+.kpi-sub {{ font: 500 13px/1.5 'Inter'; color: var(--muted); min-height: 22px; }}
 .big-number {{ font: 700 34px/1.1 'Inter'; letter-spacing: -0.02em; margin: 4px 0; color: var(--ink); }}
 .big-number.pos {{ color: var(--pos); }} .big-number.neg {{ color: var(--neg); }}
 .idea {{ font: 600 18px/1.35 'Inter'; margin: 4px 0 2px 0; }}
@@ -110,6 +110,18 @@ h4 {{ font-size: 1.05rem !important; font-weight: 600 !important; }}
 .attn-sub {{ font: 500 14px/1.5 'Inter'; color: var(--muted); margin-top: 2px; }}
 .attn-icon {{ width: 10px; height: 10px; border-radius: 50%; background: #E3A008; margin-top: 7px; flex: 0 0 auto; font-size: 0; }}
 .st-key-card_attention_calm .attn-icon {{ background: var(--pos); }}
+
+/* hover explanations: details live here, not on the page */
+.hint {{ position: relative; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+    border-radius: 50%; border: 1px solid #CFCFCA; color: var(--subtle); font: 600 10px 'Inter'; cursor: help;
+    margin-left: 6px; vertical-align: middle; text-transform: none; letter-spacing: 0; }}
+.hint.label {{ width: auto; height: auto; border: none; border-radius: 0; font: 500 13px 'Inter'; color: var(--muted); margin-left: 0; }}
+.hint:hover {{ color: var(--ink); border-color: var(--ink); }}
+.hint:hover::after {{ content: attr(data-tip); position: absolute; top: calc(100% + 6px); left: -10px; z-index: 9999;
+    width: max-content; max-width: 320px; white-space: normal; text-align: left; background: #111318; color: #fff;
+    font: 500 12.5px/1.5 'Inter'; padding: 9px 11px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.18); }}
+.hint.right:hover::after {{ left: auto; right: -10px; }}
+h1 .hint {{ width: 18px; height: 18px; font-size: 11px; margin-left: 8px; }}
 
 /* chips */
 .tip {{ display:inline-flex; width:15px; height:15px; border-radius:50%; border:1px solid #CFCFCA; color: var(--subtle);
@@ -247,9 +259,16 @@ def status(label: str, kind: str = "neutral") -> str:
     return f'<span class="status {kind}">{esc(label)}</span>'
 
 
+def hint(text: str, label: str = "i", *, right: bool = False) -> str:
+    """Hover explanation: a small ⓘ (or a quiet text label) that shows ``text`` on hover."""
+    text = str(text).replace("**", "")
+    cls = "hint" + (" label" if label != "i" else "") + (" right" if right else "")
+    return f'<span class="{cls}" data-tip="{esc(text)}">{esc(label)}</span>'
+
+
 def tip(text: str) -> str:
-    """A small ⓘ with a native hover tooltip (for one-line explanations)."""
-    return f'<span class="tip" title="{esc(text)}">i</span>'
+    """A small ⓘ that explains a figure on hover."""
+    return hint(text)
 
 
 def kpi_card(label: str, value: str, *, delta_html: str = "", sub: str = "", tooltip: str = "") -> str:
