@@ -174,7 +174,7 @@ Limits:
 | Decision-needed texts, levels, once per day, STOP, DETAILS/OPTIONS, persistence across restart, old-state migration | New tests (`test_milestone6.py`) | pass |
 | Shared scenario between dashboard and phone | Existing tests (published scenario file) | pass |
 | Secrets | Keys never printed; phone masked in status, logs and docs | ok |
-| **Live phone round trip** | Needs you to text the line | **not yet verified in this milestone**; steps below |
+| **Live phone round trip** | Owner texted "How did we do yesterday?" from •••4982; `worker run --once`; read-only status refresh | **Verified 2026-11-15**: inbound 02:44:02 UTC; answered by the fast path (verified records, no model call; the worker's whole run took about 4 s); Photon status **delivered** at 02:44:23, 1.4 s after sending. Reply: "Yesterday (Friday 2026-11-13) sales were $2,713, 31% below a typical Friday…" |
 
 **Phone-side test:**
 1. From the authorized phone, text the shared Photon line: "How did we do yesterday?"
@@ -253,8 +253,11 @@ python -m decisiondesk.messaging.worker alerts       # decision-needed texts (op
 - notification levels, decision-needed texts, DETAILS/OPTIONS, persistence (mocked tests);
 - read-only Photon status.
 
+**Verified live:** the phone round trip (question, then a verified answer, Photon-confirmed
+delivery).
+
 **Built but not verified live:**
-- the phone round trip (steps in section 4);
+- DETAILS / OPTIONS and the "decision needed" text from a real phone (mocked tests only);
 - scheduled morning texts (needs launchd/cron and a phone);
 - Gemini answers to open questions beyond the one measured.
 
