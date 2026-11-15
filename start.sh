@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One command to open Main Street Risk Desk in your browser (http://localhost:8501).
+# One command to open Vizor in your browser (http://localhost:8501).
 # Usage: ./start.sh            (Gemini analyst if GEMINI_API_KEY is set in .env)
 #        ./start.sh offline    (instant rule-based analyst, good for demos)
 set -euo pipefail

@@ -1,4 +1,4 @@
-"""Design system for Main Street Risk Desk (Milestone 6.1): one simple, consistent style.
+"""Design system for Vizor (Milestone 6.1): one simple, consistent style.
 
 Tokens: warm off-white canvas, white cards with hairline borders and soft shadows, 16 px radii,
 Inter for all text and figures, one brand colour (cobalt) and reserved

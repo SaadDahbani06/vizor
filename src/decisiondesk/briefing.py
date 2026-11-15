@@ -361,7 +361,7 @@ def briefing_text(b: dict) -> str:
 def briefing_sms(b: dict) -> str:
     """Short version for a text message (no attachments, under ~900 characters)."""
     y = b["yesterday"]
-    lines = [f"Good morning from Main Street Risk Desk ({b['data_label']} demo data).",
+    lines = [f"Good morning from Vizor ({b['data_label']} demo data).",
              f"Yesterday: revenue {_m(y['revenue'])}, {_pct(y['revenue_change_pct'])} vs a typical {b['weekday']}."]
     for a in b["alerts"][:3]:
         lines.append(f"- {a['title']}")

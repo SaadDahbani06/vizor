@@ -1,4 +1,4 @@
-# Main Street Risk Desk: calm light theme (the CSS in decisiondesk/ui/theme.py builds on it).
+# Vizor: calm light theme (the CSS in decisiondesk/ui/theme.py builds on it).
 [theme]
 base = "light"
 primaryColor = "#2346D8"

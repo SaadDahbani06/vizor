@@ -318,7 +318,7 @@ class MessagingService:
 
     def send_test(self, handle: str) -> dict:
         o = self.store.owner(handle)
-        text = ("Main Street Risk Desk test message. Reply OPTIONS for recommendations, HELP for "
+        text = ("Vizor test message. Reply OPTIONS for recommendations, HELP for "
                 "commands, STOP to unsubscribe.")
         return self._send(o, text, key=f"msrd-test:{uuid.uuid4().hex[:16]}", kind="test")
 
@@ -458,17 +458,17 @@ class MessagingService:
                 o.stopped, o.alerts_opt_in = True, False
                 self.store.event("consent", f"{o.masked} sent STOP; all messages stopped")
                 self.store.save()
-            return self._send(o, "You're unsubscribed from Main Street Risk Desk. No more messages "
+            return self._send(o, "You're unsubscribed from Vizor. No more messages "
                                  "will be sent. Reply START to resubscribe.", key=key, kind="stop", parent=mid)
         if o.stopped and word not in START_WORDS:
             return None  # respect STOP: no replies until START
         if word in START_WORDS:
             self.set_alert_consent(handle, True, "message:START")
-            return self._send(o, "Subscribed to Main Street Risk Desk risk alerts for your "
+            return self._send(o, "Subscribed to Vizor risk alerts for your "
                                  "business. Reply STOP to unsubscribe, HELP for commands.",
                               key=key, kind="start", parent=mid)
         if word == "HELP":
-            return self._send(o, "Main Street Risk Desk: ask about sales, cash, costs, prices or a decision "
+            return self._send(o, "Vizor: ask about sales, cash, costs, prices or a decision "
                                  "(for example 'What if taco prices rise 5%?'). DETAILS = numbers behind the last "
                                  "alert. OPTIONS = what you could do. STOP = unsubscribe. Figures are estimates, "
                                  "not guarantees.", key=key, kind="help", parent=mid)

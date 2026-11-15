@@ -1,4 +1,4 @@
-"""Milestones 5-5.5: the four-page owner dashboard and the "Ask AI" side panel (headless Streamlit
+"""Milestones 5-5.5: the four-page owner dashboard and the "Ask Vizor AI" side panel (headless Streamlit
 AppTest, offline analyst, fast models). Business language on screen; numbers unchanged."""
 import time
 from pathlib import Path

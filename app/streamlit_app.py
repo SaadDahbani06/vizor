@@ -1,10 +1,10 @@
-"""Main Street Risk Desk — Streamlit interface (Milestone 5.5: premium owner experience).
+"""Vizor — Streamlit interface (formerly Main Street Risk Desk).
 
     ./start.sh            (opens http://localhost:8501 in your browser)
     streamlit run app/streamlit_app.py
 
 Four pages built around an owner's questions (what is happening, why it matters, what can I do):
-Overview, My Business, Decision Lab and Local Market. The assistant ("Ask AI") opens as a side
+Overview, My Business, Decision Lab and Local Market. The assistant (Vizor AI) opens as a side
 panel on every page. Notifications (iMessage), data upload and Advanced diagnostics (model
 validation, calibration, reconciliation, banking sandbox) live under Settings.
 
@@ -54,7 +54,7 @@ SAMPLE_NOTE = ("This demo uses a fictional business with computer-generated (syn
                "Connect your own data in Settings → Data.")
 NUM_WORDS = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five"}
 
-st.set_page_config(page_title="Main Street Risk Desk", layout="wide", page_icon="🏪",
+st.set_page_config(page_title="Vizor", layout="wide", page_icon="🏪",
                    initial_sidebar_state="collapsed")
 st.markdown(T.CSS, unsafe_allow_html=True)
 
@@ -205,8 +205,7 @@ hdr = st.columns([2.3, 4.4, 1.95, 0.95, 0.6], vertical_alignment="center")
 with hdr[0]:
     sample = (f'<span class="sample" title="{T.esc(SAMPLE_NOTE)}">Demo Business · Sample Data</span>' if demo
               else f'<span class="status pos">{T.esc(s.data_label.title())}</span>')
-    st.markdown(f'<div class="brand"><div class="brand-mark">M</div><div><div class="brand-name">Main Street '
-                f'Risk Desk</div><div class="biz-line">{sample}</div></div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="brand"><div class="brand-mark">V</div><div><div class="brand-name">Vizor</div><div class="biz-line">{sample}</div></div></div>', unsafe_allow_html=True)
 with hdr[1]:
     page = st.radio("Navigate", PAGES, horizontal=True, key="nav", label_visibility="collapsed",
                     on_change=close_settings)
@@ -313,7 +312,7 @@ def analyst_panel() -> None:
     chat = st.session_state["chat"]
     mode = {"gemini": "Gemini", "claude": "Claude", "offline": "Offline mode"}.get(agent.mode, agent.mode)
     head = st.columns([6, 1], vertical_alignment="center")
-    head[0].markdown(f'<div class="chat-head"><div class="chat-avatar">AI</div><div><div class="chat-name">Financial analyst</div>'
+    head[0].markdown(f'<div class="chat-head"><div class="chat-avatar">V</div><div><div class="chat-name">Vizor AI</div>'
                      f'<div class="chat-sub">Knows {T.esc(biz_name())} · {T.esc(mode)}</div></div></div>',
                      unsafe_allow_html=True)
     with head[1], st.container(key="chat_toggle_close"):
@@ -369,13 +368,11 @@ def analyst_panel() -> None:
 
 def floating_chat() -> None:
     if st.session_state.get("chat_open", False):
-        st.markdown("<style>@media (min-width: 1500px) { [data-testid='stMainBlockContainer'] "
-                    "{ padding-right: 470px !important; } }</style>", unsafe_allow_html=True)
-        with st.container(key="chat_panel"):
+        with st.container(key="chat_panel"):  # slides over the page; the page itself never moves
             analyst_panel()
     else:
         with st.container(key="chat_fab"):
-            st.button("✦  Thinking…" if st.session_state.get("pending") else "✦  Ask AI", key="chat_toggle",
+            st.button("✦  Thinking…" if st.session_state.get("pending") else "✦  Ask Vizor AI", key="chat_toggle",
                       on_click=_toggle_chat)
 
 
@@ -693,7 +690,7 @@ def section_sales(ctx, stop) -> None:
                             .replace("With your change", "Yesterday"), unsafe_allow_html=True)
             c1, c2, _ = st.columns([1.2, 1, 3])
             c1.button("Clear", key="act2_inv_clear", on_click=lambda: st.session_state.update(investigate=None))
-            if c2.button("Ask AI", key="act2_inv_sales_ask"):
+            if c2.button("Ask Vizor AI", key="act2_inv_sales_ask"):
                 _ask("Why did revenue fall yesterday?")
                 st.rerun()
     span = seg("Range", [30, 90, 365], "seg_mb_range", 90, lambda d: {30: "30 days", 90: "90 days", 365: "12 months"}[d])
@@ -859,7 +856,7 @@ def product_detail(ctx, table: pd.DataFrame) -> None:
     b1, b2, _ = st.columns([1.3, 1.3, 3])
     b1.button(f"Test a {name.lower()} price change", key="cta_pd_lab", on_click=go, args=("Decision Lab",),
               kwargs=lab_link(name))
-    if b2.button(f"Ask AI about {name.lower()}", key="pd_ask"):
+    if b2.button(f"Ask Vizor AI about {name.lower()}", key="pd_ask"):
         _ask(f"Should I buy more {name.lower()} ingredients?")
         st.rerun()
 
@@ -887,7 +884,7 @@ def investigate_panel(ctx, name: str, alert: dict) -> None:
                   kwargs=lab_link(name, "Change a price"))
         c2.button("Simulate ordering more", key="act2_inv_order", on_click=go, args=("Decision Lab",),
                   kwargs=lab_link(name, "Order more or less", sl_supply=25.0))
-        if c3.button("Ask AI", key="act2_inv_ask"):
+        if c3.button("Ask Vizor AI", key="act2_inv_ask"):
             _ask(f"Which product is making the most money, and how is {name.lower()} doing?")
             st.rerun()
 
@@ -1373,7 +1370,7 @@ def lab(ctx) -> None:
             if st.session_state.get("lab_approved"):
                 st.success(st.session_state["lab_approved"])
         e1, e2 = st.columns(2)
-        if e1.button("Ask AI about this", key="go_analyst", width="stretch"):
+        if e1.button("Ask Vizor AI", key="go_analyst", width="stretch"):
             _ask(f"What happens if {name.lower()} prices change {sc.price_change_pct:+g}%?" if sc.price_change_pct
                  else f"What if supplier costs rise {sc.ingredient_cost_change_pct:g}%?" if sc.ingredient_cost_change_pct
                  else f"Should I buy more {name.lower()} ingredients?" if sc.supply_change_pct or sc.extra_units

@@ -205,4 +205,4 @@ def fit_text(text: str, limit: int = MAX_TEXT) -> str:
         if i > limit // 2:
             cut = cut[: i + 1]
             break
-    return cut.rstrip() + " … (full details in the Main Street Risk Desk dashboard)"
+    return cut.rstrip() + " … (full details in your Vizor dashboard)"

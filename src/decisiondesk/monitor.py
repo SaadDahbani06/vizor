@@ -238,7 +238,7 @@ def main() -> None:
 
     from .agent.tools import BusinessSession
     load_dotenv(".env")
-    parser = argparse.ArgumentParser(description="Main Street Risk Desk monitor")
+    parser = argparse.ArgumentParser(description="Vizor monitor")
     sub = parser.add_subparsers(dest="cmd", required=True)
     a = sub.add_parser("add")
     a.add_argument("--business", choices=["restaurant", "retail"], required=True)

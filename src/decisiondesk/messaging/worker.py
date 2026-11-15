@@ -51,7 +51,7 @@ def build_service() -> MessagingService:
 
 def main() -> None:
     load_dotenv(".env")
-    parser = argparse.ArgumentParser(description="Main Street Risk Desk messaging worker")
+    parser = argparse.ArgumentParser(description="Vizor messaging worker")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status")
     r = sub.add_parser("run")

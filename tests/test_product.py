@@ -349,7 +349,7 @@ def test_ui_runs_end_to_end_without_credentials(monkeypatch):
     at.radio(key="nav").set_value("Decision Lab").run()
     at.button(key="d_run").click().run()
     assert not at.exception and (at.success or at.warning)
-    at.button(key="chat_toggle").click().run()  # "Ask AI" side panel (5.5)
+    at.button(key="chat_toggle").click().run()  # "Ask Vizor AI" side panel
     at.chat_input(key="chat_in").set_value("What should I do if my food costs increase 15%?").run()
     reply = at.chat_message[0]  # newest first
     assert not at.exception and "Recommendation" in reply.markdown[0].value
