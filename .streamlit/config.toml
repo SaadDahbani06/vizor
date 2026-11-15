@@ -1,14 +1,15 @@
-# Main Street Risk Desk: light editorial theme (the CSS in decisiondesk/ui/theme.py builds on it).
+# Main Street Risk Desk: calm light theme (the CSS in decisiondesk/ui/theme.py builds on it).
 [theme]
 base = "light"
 primaryColor = "#2346D8"
-backgroundColor = "#F3EFE6"
-secondaryBackgroundColor = "#FFFDF8"
-textColor = "#111111"
+backgroundColor = "#F6F5F2"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#15171C"
 font = "sans serif"
 
 [server]
-headless = true
+headless = false   # open the browser automatically on `streamlit run`
+port = 8501
 
 [browser]
 gatherUsageStats = false

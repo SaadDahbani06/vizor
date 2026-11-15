@@ -29,6 +29,13 @@ COST_RATIO_PTS = 1.5          # ingredient cost share of sales up this many poin
 MAX_ALERTS = 5
 WEEKS = 4
 SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
+PLAIN_ASSUMPTION = {"elasticity": "How strongly customers react to price",
+                    "substitution": "Share of customers who switch to another dish when one sells out",
+                    "marketing": "How much extra business marketing brings in"}
+PLAIN_EDGE = {"elasticity": {"low": "customers react to price more strongly than we assumed",
+                             "high": "customers barely react to price"},
+              "substitution": {"low": "fewer customers switch to another dish", "high": "more customers switch to another dish"},
+              "marketing": {"low": "marketing brings in less than we assumed", "high": "marketing brings in more than we assumed"}}
 
 
 def _m(x: float) -> str:
@@ -89,11 +96,14 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
     # Traffic / sales decline (observed)
     gc, rc = yy["guests_change_pct"], yy["revenue_change_pct"]
     if rc is not None and rc <= UNDERPERFORM_PCT:
-        why = (f"{volume} were {_pct(gc)} vs a typical {out['weekday']}, which explains most of it."
-               if gc is not None and gc <= UNDERPERFORM_PCT else "Fewer sales per guest or a product mix shift.")
-        alerts.append(_alert("sales_decline", "medium", f"Sales {_pct(rc)} vs a typical {out['weekday']}",
-                             f"{_m(yy['revenue'])} vs {_m(yy['revenue_typical'])}. {why}", "observed",
-                             "Check whether this repeats today before acting; one slow day is common.",
+        who = "customers" if session.industry == "restaurant" else "items sold"
+        why = (f"There were also fewer {who} ({abs(gc):.0f}% fewer), which explains most of it."
+               if gc is not None and gc <= UNDERPERFORM_PCT else
+               "Customers spent less each, or bought different items.")
+        alerts.append(_alert("sales_decline", "medium", f"Sales were {abs(rc):.0f}% below a usual {out['weekday']}",
+                             f"{_m(yy['revenue'])}, compared with about {_m(yy['revenue_typical'])} on a usual "
+                             f"{out['weekday']}. {why}", "observed",
+                             "See if today is slow too before changing anything. One slow day is common.",
                              page="My Business"))
 
     # Products (only when product records exist)
@@ -117,10 +127,9 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
                 out["underperforming"].append(rec)
         for p in sorted(out["underperforming"], key=lambda r: r["vs_guests_pts"])[:2]:
             alerts.append(_alert("product_mix", "medium", f"{p['product']} sold less than usual",
-                                 f"{p['units_sold']} units vs a typical {p['units_typical']} "
-                                 f"({_pct(p['change_pct'])}), {abs(p['vs_guests_pts']):.0f} points worse "
-                                 f"than the change in {volume.lower()}.", "observed",
-                                 "Look at this product's recent days before changing anything.",
+                                 f"{p['units_sold']} sold, compared with about {p['units_typical']:.0f} on a usual "
+                                 f"{out['weekday']}. That is a bigger drop than the drop in customers.",
+                                 "observed", "Look at its last few days before changing anything.",
                                  page="My Business", product=p["product"]))
         # Ingredient cost share (observed): last 7 days vs the 28 days before
         r = ctx.history.recon
@@ -132,10 +141,10 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
             out["ingredient_cost_share"] = {"last_7_days_pct": round(s7, 1), "previous_28_days_pct": round(s28, 1),
                                             "change_points": round(s7 - s28, 1)}
             if s7 - s28 >= COST_RATIO_PTS:
-                alerts.append(_alert("cost_increase", "medium", "Ingredient costs are a bigger share of sales",
-                                     f"{s7:.1f}% of sales in the last 7 days vs {s28:.1f}% before.",
-                                     "observed", "Compare recent supplier invoices; test a supplier cost "
-                                     "change in the Decision Lab.", page="Decision Lab"))
+                alerts.append(_alert("cost_increase", "medium", "Ingredients are taking more of your sales",
+                                     f"Ingredients cost {s7:.1f}% of sales this week, up from {s28:.1f}% "
+                                     "before.", "observed", "Check your latest supplier invoices, then "
+                                     "test the price change in the Decision Lab.", page="Decision Lab"))
         # Stock (observed stock + forecast usage; simulated risk)
         table = dash.product_table(session, "28d")
         inv = dash.inventory_kpi(session)
@@ -144,9 +153,9 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
                 out["stock_watch"].append({"what": it["ingredient"], "days_of_supply": round(it["days_of_supply"], 1),
                                            "next_delivery_in_days": inv["next_delivery_in_days"], "kind": "ingredient"})
                 alerts.append(_alert("low_stock", "high", f"{it['ingredient']} may run out before the next delivery",
-                                     f"About {it['days_of_supply']:.1f} days of supply at forecast use; next "
-                                     f"delivery in {inv['next_delivery_in_days']} days.", "forecast",
-                                     "Consider a top-up order (test it in the Decision Lab first).",
+                                     f"Enough for about {it['days_of_supply']:.1f} days at the expected pace; "
+                                     f"the next delivery is in {inv['next_delivery_in_days']} days.", "forecast",
+                                     "Think about a small extra order (try it in the Decision Lab first).",
                                      page="Decision Lab"))
         risky = table[table["stockout_risk_7d"] >= RISK_WATCH].sort_values("stockout_risk_7d", ascending=False)
         for _, rr in risky.iterrows():
@@ -154,10 +163,10 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
                                        "days_of_supply": round(rr["days_of_supply"], 1), "kind": "product"})
         if len(risky):
             rr = risky.iloc[0]
-            alerts.append(_alert("stockout_risk", "medium", f"{rr['product']} could run short this week",
-                                 f"{round(rr['stockout_risk_7d'] * 100)}% of simulated weeks run short under "
-                                 "the current ordering plan.", "simulated",
-                                 "Test a small increase in ingredient orders in the Decision Lab.",
+            alerts.append(_alert("stockout_risk", "medium", f"{rr['product']} could sell out this week",
+                                 f"It ran short in {round(rr['stockout_risk_7d'] * 100)}% of our test runs with "
+                                 "your usual orders.", "simulated",
+                                 "Try ordering a little more in the Decision Lab.",
                                  page="Decision Lab", product=rr["product"]))
 
     # Bills and cash (observed ledger + scheduled bills)
@@ -174,13 +183,13 @@ def daily_briefing(session, *, with_action: bool = True, market_as_of=None) -> d
     due = out.get("bills_due_7d_total", 0.0) + out.get("supplier_payables", 0.0)
     if cash is not None and due and cash < due:
         alerts.append(_alert("cash", "high", "Cash may not cover this week's bills",
-                             f"Cash {_m(cash)} vs {_m(due)} of bills and supplier invoices due within 7 days.",
-                             "observed", "Review which payments can move, and check the cash forecast.",
-                             page="My Business"))
+                             f"You have {_m(cash)}; bills and supplier invoices due in the next 7 days add "
+                             f"up to {_m(due)}.", "observed",
+                             "See which payments could move, and check the cash outlook.", page="My Business"))
     if out["bills_due_7d"]:
-        alerts.append(_alert("bills", "low", f"{len(out['bills_due_7d'])} bills due in the next 7 days",
+        alerts.append(_alert("bills", "low", f"{len(out['bills_due_7d'])} bills due this week",
                              f"{_m(out['bills_due_7d_total'])} in total.", "observed",
-                             "No action needed if cash covers them.", page="My Business"))
+                             "Nothing to do if your cash covers them.", page="My Business"))
 
     alerts.sort(key=lambda a: SEVERITY_ORDER[a["severity"]])
     out["alerts"] = alerts[:MAX_ALERTS]
@@ -230,28 +239,33 @@ def decision_checklist(ctx, sc, cmp_: dict, sens: list[dict] | None = None, *, l
                        "units_sold_change": round(cmp_["units_sold"]["change"]), "horizon_days": cmp_["horizon_days"]},
             "assumptions": [], "risks": [], "verify": []}
     plan["uncertainty"] = (
-        f"In 9 of 10 simulated months the profit change was between {_m(lo)} and {_m(hi)}; it beat the "
-        f"current plan in {plan['impact']['probability_better_pct']}% of them."
-        + (" It could go either way." if lo < 0 < hi else ""))
+        f"In 9 of 10 test runs the profit change was between {_m(lo)} and {_m(hi)}; it beat changing "
+        f"nothing in {plan['impact']['probability_better_pct']}% of them."
+        + (" So it could go either way." if lo < 0 < hi else ""))
     relevant = {"elasticity": bool(sc.price_change_pct), "substitution": bool(sc.price_change_pct),
                 "marketing": bool(sc.marketing_change_pct)}
     for a in cmp_["assumptions"]:
         key = next((k for k in relevant if k in a["name"]), None)
         if a.get("low") is not None and (key is None or relevant[key]):
-            plan["assumptions"].append(f"{a['name'].replace('_', ' ')}: {a['value']} (range {a['low']} to {a['high']}; assumed)")
+            plan["assumptions"].append(f"{PLAIN_ASSUMPTION[key] if key else a['name'].replace('_', ' ')}: "
+                                       f"{a['value']} (between {a['low']} and {a['high']}; our assumption, "
+                                       "not measured)")
     if cmp_["units_sold"]["change"] < -0.5:
-        plan["risks"].append(f"Fewer {name.lower()} sold (about {round(-cmp_['units_sold']['change'])} units).")
+        plan["risks"].append(f"About {round(-cmp_['units_sold']['change'])} fewer {name.lower()} sold.")
     sr = cmp_["stockout_risk"]
     if sr["scenario"] > sr["baseline"] + 0.02:
-        plan["risks"].append(f"More sell-outs: risk {sr['baseline']:.0%} to {sr['scenario']:.0%}.")
+        plan["risks"].append(f"It sells out more often: {sr['baseline']:.0%} of test runs now, "
+                             f"{sr['scenario']:.0%} with this change.")
     if lo < 0:
-        plan["risks"].append(f"The likely range includes a loss ({_m(lo)}).")
+        plan["risks"].append(f"It could lose money (as much as {_m(lo)} in the worse runs).")
     if not cmp_["within_policy"]:
         plan["risks"].append("Outside your approved limits: " + "; ".join(cmp_["policy_violations"]) + ".")
     for f in sens or []:
         if np.sign(f["profit_change"]) != np.sign(p["change"]) and abs(p["change"]) > 0.5:
-            plan["risks"].append(f"Reverses if {f['assumption'].replace('_', ' ')} is at its {f['level']} "
-                                 f"bound ({_m(f['profit_change'])}).")
+            key = next((k for k in PLAIN_EDGE if k in f["assumption"]), None)
+            what = PLAIN_EDGE[key][f["level"]] if key else f"{f['assumption'].replace('_', ' ')} is at its {f['level']} bound"
+            plan["risks"].append(f"If {what}, it {'turns into a loss' if f['profit_change'] < 0 else 'makes money instead'} "
+                                 f"({_m(f['profit_change'])}).")
     if sc.price_change_pct:
         plan["verify"].append("Price sensitivity is an assumption, not measured: try the new price for "
                               "a few weeks and watch orders before making it permanent.")

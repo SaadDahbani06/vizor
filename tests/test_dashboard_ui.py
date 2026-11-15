@@ -1,5 +1,5 @@
-"""Milestones 5 and 5.4: the four-page dashboard with the sidebar analyst (headless Streamlit
-AppTest, offline analyst, fast models)."""
+"""Milestones 5 and 5.4: the simple four-page dashboard with the floating analyst (headless
+Streamlit AppTest, offline analyst, fast models)."""
 import time
 from pathlib import Path
 
@@ -27,14 +27,23 @@ def text(at) -> str:
     return md(at) + " " + " ".join(c.value for c in at.caption)
 
 
-def test_four_pages_render_and_overview_shows_kpis(at):
+def test_overview_is_minimal_and_plain(at):
     assert list(at.radio(key="nav").options) == PAGES
     t = md(at)
-    for label in ("Revenue", "Profit (operating)", "Cash on hand", "Expenses", "Inventory health",
-                  "Bills due (7 days)"):
+    for label in ("Sales this month", "Profit this month", "Cash on hand"):
         assert label in t, label
-    assert "greeting" in t and "Today's briefing" in t and "One decision to consider" in t
-    assert "Changes worth investigating" in t
+    assert "greeting" in t and "What needs your attention" in t and "One idea to consider" in t
+    assert "of every $1 of sales" in t and "Covers this week's bills" in t
+    assert "Raise the price of tacos by 5%" in t and "About +$286 profit over the next 4 weeks" in t
+    assert "19 of 20" in t  # 95% in plain words
+    attention = [b for b in at.button if b.key and b.key.startswith("go_alert_")]
+    assert 1 <= len(attention) <= 3  # at most three things on the Overview
+    for jargon in ("90%", "simulated futures", "elasticity", "Observed · synthetic"):
+        assert jargon not in t, jargon
+    assert "SYNTHETIC" in t  # one honest demo-data banner stays
+
+
+def test_every_page_renders(at):
     for page in PAGES:
         at.radio(key="nav").set_value(page).run()
         assert not at.exception, page
@@ -49,81 +58,81 @@ def test_no_economy_messaging_or_evidence_pages_and_no_macro_ui(at):
         assert "FRED" not in text(at) and "CPI" not in text(at), page
 
 
-def test_kpi_cards_navigate_to_the_matching_section(at):
-    for button, section in (("go_revenue", "Sales & profit"), ("go_profit", "Expenses"),
-                            ("go_cash", "Cash & bills"), ("go_inventory", "Inventory"),
-                            ("go_liabilities", "Cash & bills")):
+def test_cards_and_alerts_navigate(at):
+    for button, section in (("go_revenue", "Sales & profit"), ("go_profit", "Costs"), ("go_cash", "Cash & bills")):
         at.radio(key="nav").set_value("Overview").run()
         at.button(key=button).click().run()
         assert at.radio(key="nav").value == "My Business"
         assert at.radio(key="seg_mb_section").value == section
-        assert not at.exception
-
-
-def test_how_was_this_calculated_explanations(at):
-    pops = [p for p in at.get("popover") if "How was this calculated" in p.proto.popover.label]
-    assert len(pops) >= 5  # one per KPI card
-
-
-def test_period_toggles_change_the_numbers(at):
-    mtd = md(at)
-    at.radio(key="seg_ov_period").set_value("365d").run()
-    assert not at.exception and md(at) != mtd
-    at.radio(key="seg_ov_window").set_value("1Y").run()
+    at.radio(key="nav").set_value("Overview").run()
+    at.button(key="go_alert_1").click().run()  # "Nachos sold less than usual"
+    assert at.radio(key="seg_mb_section").value == "Products" and at.selectbox(key="prod_pick").value == "Nachos"
+    at.radio(key="nav").set_value("Overview").run()
+    at.button(key="cta_brief_lab").click().run()
+    assert at.radio(key="nav").value == "Decision Lab" and at.slider(key="sl_price").value == 5.0
     assert not at.exception
+
+
+def test_how_we_worked_it_out_tips(at):
+    pops = [p for p in at.get("popover") if "How we worked this out" in p.proto.popover.label]
+    assert len(pops) >= 4  # three number cards + the idea
 
 
 def test_my_business_metrics_products_and_sections(at):
     at.radio(key="nav").set_value("My Business").run()
-    for metric in ("Operating profit", "Gross profit", "Guests"):  # clickable metrics
+    for metric in ("Profit", "After ingredients", "Customers"):  # tap a number -> its chart
         at.radio(key="seg_mb_metric").set_value(metric).run()
         assert not at.exception and f"#### {metric}" in md(at)
     at.radio(key="seg_mb_section").set_value("Products").run()
-    assert at.selectbox(key="prod_pick").value == "Tacos"
-    at.selectbox(key="prod_pick").set_value("Burritos").run()
+    assert "You keep $9.49 of each after ingredients" in md(at)  # tacos: $12.75 - $3.26
+    at.button(key="go_prod_burritos").click().run()
     assert "## Burritos" in md(at)
     labels = " ".join(m.label for m in at.metric)
     assert "Stock-out date" in labels and "Available stock" in labels
     at.button(key="go_pd_lab").click().run()
     assert at.radio(key="nav").value == "Decision Lab" and at.selectbox(key="sl_product").value == "Burritos"
     at.radio(key="nav").set_value("My Business").run()
-    for sec in ("Inventory", "Expenses", "Cash & bills", "Forecasts"):
+    for sec in ("Stock", "Costs", "Cash & bills", "Next 4 weeks"):
         at.radio(key="seg_mb_section").set_value(sec).run()
         assert not at.exception, sec
 
 
-def test_decision_lab_controls_drive_the_outcomes(at):
+def test_decision_lab_shows_one_kind_of_change_at_a_time(at):
     at.radio(key="nav").set_value("Decision Lab").run()
-    assert "Current plan (no change yet)" in md(at)
+    assert "Move a slider above" in md(at)
+    keys = {s.key for s in at.slider}
+    assert "sl_price" in keys and "sl_cost" not in keys and "sl_supply" not in keys
     at.slider(key="sl_price").set_value(10.0).run()
     t = md(at)
     assert "Outside the owner" in t and "Tacos price +10%" in t
-    assert at.number_input(key="sl_price_num").value == 10.0  # slider and number box stay in sync
-    at.number_input(key="sl_price_num").set_value(4.0).run()
-    assert at.slider(key="sl_price").value == 4.0 and "within policy" in md(at)
-    assert "Before you decide" in md(at) and "Verify first" in md(at)
-    assert any("assumption" in c.label for c in at.checkbox)  # verification items to tick
+    at.slider(key="sl_price").set_value(5.0).run()
+    t = md(at)
+    assert "within your limit" in t and "About +$" in t and "Before you decide" in t and "Check first" in t
+    assert any("assumption" in c.label for c in at.checkbox)  # things to check, as ticks
+    at.radio(key="seg_sl_mode").set_value("Order more or less").run()
+    assert "sl_price" not in {s.key for s in at.slider}
+    assert at.session_state["sl_price"] == 0.0  # switching kind resets the other change
     at.slider(key="sl_supply").set_value(-50.0).run()
     at.radio(key="seg_sl_h").set_value(7).run()
-    t = text(at)
-    assert "next 7 days" in t and "ingredient orders -50%" in t
-    assert "Best tested tacos action" in t or "None of the tested" in t
+    assert "next week" in md(at) and "ingredient orders -50%" in md(at)
     at.button(key="sl_reset").click().run()
-    assert at.slider(key="sl_price").value == 0.0 and not at.exception
+    assert at.slider(key="sl_supply").value == 0.0 and not at.exception
+    at.radio(key="seg_sl_mode").set_value("Combine changes").run()
+    assert {"sl_price", "sl_supply", "sl_cost", "sl_shock", "sl_mkt"} <= {s.key for s in at.slider}
     for name in ("Burritos", "Quesadillas", "Nachos", "Drinks"):  # every product renders
         at.selectbox(key="sl_product").set_value(name).run()
         assert not at.exception, name
 
 
-def test_supplier_cost_slider_lowers_profit_without_changing_demand(at):
+def test_supplier_price_change_lowers_profit(at):
     at.radio(key="nav").set_value("Decision Lab").run()
+    at.radio(key="seg_sl_mode").set_value("Supplier prices change").run()
     at.slider(key="sl_cost").set_value(10.0).run()
     assert not at.exception
     t = md(at)
-    assert "supplier ingredient costs +10%" in t
+    assert "supplier ingredient costs +10%" in t.lower() and "About -$" in t
     assert "Check the new prices on your latest supplier invoices." in [c.label for c in at.checkbox]
-    s = at.session_state["session"]
-    assert s.state.product_scenario["ingredient_cost_change_pct"] == 10.0
+    assert at.session_state["session"].state.product_scenario["ingredient_cost_change_pct"] == 10.0
 
 
 def test_publishing_the_lab_scenario_for_imessage(at):
@@ -138,31 +147,32 @@ def test_publishing_the_lab_scenario_for_imessage(at):
     assert "Published v1" in md(at) and "Decision Lab: Tacos price +3%" in md(at)
 
 
-def test_lab_question_reaches_the_sidebar_analyst(at):
-    """Regression (5.2 audit, kept in 5.4): the Lab's question is answered, not lost."""
-    at.radio(key="nav").set_value("Decision Lab").run()
-    at.slider(key="sl_price").set_value(5.0).run()
-    at.button(key="go_analyst").click().run()
-    assert not at.exception
-    reply = at.chat_message[-1]
-    assert "Tacos price +5%" in reply.markdown[0].value
-    assert "every number checked" in reply.caption[0].value
-
-
-def test_analyst_suggestions_follow_the_page(at):
+def test_floating_analyst_opens_and_answers(at):
+    assert "chat_in" not in {c.key for c in at.chat_input}  # closed until asked
+    at.button(key="chat_toggle").click().run()
     labels = [b.label for b in at.button if b.key and b.key.startswith("suggest_")]
     assert "What should I focus on today?" in labels
     at.button(key="suggest_2").click().run()  # "Which of my five products is most profitable?"
     reply = at.chat_message[-1]
     assert "Most profitable" in reply.markdown[0].value and "every number checked" in reply.caption[0].value
-    at.radio(key="nav").set_value("Local Market").run()
-    labels = [b.label for b in at.button if b.key and b.key.startswith("suggest_")]
-    assert any("nearby restaurants" in x for x in labels)
+    at.button(key="chat_toggle").click().run()
+    assert not at.session_state["chat_open"]
+
+
+def test_lab_question_opens_the_analyst(at):
+    """Regression (5.2 audit, kept): the Lab's question is answered, not lost."""
+    at.radio(key="nav").set_value("Decision Lab").run()
+    at.slider(key="sl_price").set_value(5.0).run()
+    at.button(key="go_analyst").click().run()
+    assert not at.exception and at.session_state["chat_open"]
+    reply = at.chat_message[-1]
+    assert "Tacos price +5%" in reply.markdown[0].value and "every number checked" in reply.caption[0].value
 
 
 def test_chat_is_multi_turn_and_uses_page_context(at):
     at.radio(key="nav").set_value("Decision Lab").run()
     at.selectbox(key="sl_product").set_value("Nachos").run()
+    at.button(key="chat_toggle").click().run()
     at.chat_input(key="chat_in").set_value("What if I raise the price 4%?").run()
     assert "Nachos price +4%" in at.chat_message[-1].markdown[0].value  # product from the page
     at.chat_input(key="chat_in").set_value("What about 2% instead?").run()
@@ -189,6 +199,7 @@ def test_slow_gemini_does_not_block_the_dashboard(at):
             gate.wait(20)
             return agent.ask(q, context)
     at.session_state["agent"] = Slow()
+    at.button(key="chat_toggle").click().run()
     at.chat_input(key="chat_in").set_value("What should I do?").run()
     assert at.session_state["pending"] is not None and not at.exception
     assert at.chat_input(key="chat_in").disabled  # no double submits while thinking
@@ -208,6 +219,7 @@ def test_analyst_errors_are_shown_not_swallowed(at):
         def ask(self, q, context=None):
             raise RuntimeError("tool crashed")
     at.session_state["agent"] = Broken()
+    at.button(key="chat_toggle").click().run()
     at.chat_input(key="chat_in").set_value("hello").run()
     assert not at.exception and any("tool crashed" in e.value for e in at.error)
 
@@ -220,4 +232,4 @@ def test_settings_is_outside_the_navigation(at):
         at.radio(key="seg_ev_section").set_value(sec).run()
         assert not at.exception, sec
     at.button(key="settings_close").click().run()
-    assert at.session_state["view"] is None and "Today's briefing" in md(at)
+    assert at.session_state["view"] is None and "What needs your attention" in md(at)

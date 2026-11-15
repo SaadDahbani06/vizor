@@ -190,12 +190,14 @@ def test_local_market_page_opens_the_decision_lab(monkeypatch):
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
-    assert any("Today's briefing" in m.value for m in at.markdown)
+    assert any("What needs your attention" in m.value for m in at.markdown)
     at.radio(key="nav").set_value("Local Market").run()
     assert not at.exception
-    labels = {m.label: m.value for m in at.metric}
-    assert labels["Verified comparables"] == "4" and labels["Peer median"] == "$14.93"
+    text = " ".join(m.value for m in at.markdown)
+    assert "4 nearby restaurants charge" in text and "middle price $14.93" in text
+    assert "not a reason on their own to change a price" in text
     at.button(key="lm_go_Lower").click().run()
     assert at.radio(key="nav").value == "Decision Lab"
+    assert at.radio(key="seg_sl_mode").value == "Change a price"
     assert at.slider(key="sl_price").value == -5.0 and at.selectbox(key="sl_product").value == "Tacos"
     assert not at.exception

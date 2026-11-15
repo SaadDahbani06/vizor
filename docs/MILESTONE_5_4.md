@@ -135,12 +135,13 @@ readable but narrow.
 
 ## Launch
 
+The browser now opens by itself (`headless = false` in `.streamlit/config.toml`, port 8501).
+
 ```bash
-cd ~/Desktop/main-street-decision-intelligence && source .venv/bin/activate
-git switch milestone-5.4-simple-analyst
-python -m decisiondesk.precompute                      # seconds when warm
-MSRD_LLM_PROVIDER=offline streamlit run app/streamlit_app.py     # instant answers on stage
-# or without MSRD_LLM_PROVIDER to use Gemini (answers in the background)
+cd ~/Desktop/main-street-decision-intelligence
+./start.sh offline        # instant rule-based analyst, opens http://localhost:8501
+./start.sh                # Gemini analyst if GEMINI_API_KEY is in .env (answers in the background)
+# start.sh refuses to start if something (an old dashboard) already uses port 8501
 # optional iMessage worker (only one poller at a time):
 python -m decisiondesk.messaging.worker run
 python -m decisiondesk.messaging.worker briefing       # preview the morning text (sends nothing)
@@ -148,6 +149,24 @@ python -m decisiondesk.messaging.worker briefing       # preview the morning tex
 
 Deep links: `/?page=Decision%20Lab&product=Tacos&price=5&cost=8`,
 `/?view=settings&section=Advanced%20diagnostics`.
+
+## Owner-friendly redesign (second pass, same day)
+
+After the first pass, the owner-facing UI was simplified further, based on four choices the user
+made:
+- **Overview:** three big numbers (sales, profit, cash), at most three "what needs your
+  attention" items, and one idea.
+- **Chat:** a floating "Ask your analyst" button opens the chat on any page.
+- **Wording:** plain words everywhere ("About +$286 profit over the next 4 weeks; could be
+  anywhere from −$5 to +$557; came out ahead in 19 of 20 test runs"). Statistical detail sits
+  behind "ⓘ How we worked this out" tips, and one demo-data banner stays.
+- **Launch:** old dashboards stopped; the browser opens automatically; `./start.sh` added.
+
+The Decision Lab now asks "What do you want to try?" and shows one kind of change at a time
+(price, orders, supplier prices, busier or quieter days, marketing, or combine). Switching kind
+resets the other changes. My Business shows product cards ("You keep $9.49 of each after
+ingredients"). The checklist explains assumptions in words ("if customers react to price more
+strongly than we assumed, it turns into a loss"). No calculation changed.
 
 ## Limits (unchanged unless noted)
 

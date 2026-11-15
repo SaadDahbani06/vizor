@@ -36,21 +36,32 @@ CSS = f"""
 html, body, .stApp {{ background: var(--paper); color: var(--ink); font-family: 'Inter', sans-serif;
         font-feature-settings: "tnum" 1, "cv11" 1; }}
 header[data-testid="stHeader"] {{ background: transparent; }}
-.block-container {{ padding-top: 2.6rem; padding-bottom: 3rem; max-width: 1360px; }}
+.block-container {{ padding-top: 2.4rem; padding-bottom: 8rem; max-width: 1180px; }}
+[data-testid="stMainBlockContainer"] p, [data-testid="stMainBlockContainer"] li {{ font-size: 16px; line-height: 1.55; }}
+[data-testid="stVerticalBlock"] {{ gap: 1.1rem; }}
 h1, h2, h3, h4 {{ font-family: 'Inter Tight', 'Inter', sans-serif !important; letter-spacing: -0.02em; color: var(--ink); }}
-h1 {{ font-weight: 700 !important; font-size: 2.1rem !important; }}
+h1 {{ font-weight: 700 !important; font-size: 2.3rem !important; padding-bottom: 0 !important; }}
+h4 {{ font-weight: 650 !important; font-size: 1.2rem !important; }}
 h3 {{ font-weight: 650 !important; }}
-/* Sidebar = the analyst */
+/* Sidebar: business picker only (collapsed by default) */
 [data-testid="stSidebar"] {{ background: #FBFAF8; border-right: 1px solid var(--line); }}
-[data-testid="stSidebar"] [data-testid="stChatMessage"] {{ background: var(--card); border: 1px solid var(--line);
-    border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; }}
-[data-testid="stSidebar"] [data-testid="stChatMessage"] p, [data-testid="stSidebar"] [data-testid="stChatMessage"] li
-    {{ font-size: 13.5px; line-height: 1.45; }}
-.analyst-head {{ display:flex; align-items:center; gap:10px; margin: 2px 0 2px 0; }}
-.analyst-dot {{ width:34px; height:34px; border-radius: 50%; background: linear-gradient(135deg, #2346D8, #6C8BFF);
-    color:#fff; display:flex; align-items:center; justify-content:center; font: 700 14px 'Inter'; }}
-.analyst-name {{ font: 700 16px 'Inter Tight', 'Inter'; }}
-.analyst-sub {{ font: 500 12px 'Inter'; color: var(--muted); }}
+/* Floating analyst: round button bottom-right, roomy panel above it */
+.st-key-chat_fab {{ position: fixed; right: 28px; bottom: 26px; z-index: 1001; width: auto !important; }}
+.st-key-chat_fab button {{ background: var(--ink) !important; color: #fff !important; border: none !important;
+    border-radius: 999px !important; padding: 12px 22px !important; font-size: 15px !important;
+    box-shadow: 0 8px 28px rgba(20,22,28,.28) !important; }}
+.st-key-chat_fab button p {{ color: #fff !important; font-size: 15px !important; font-weight: 600; }}
+.st-key-chat_panel {{ position: fixed; right: 28px; bottom: 92px; z-index: 1000; width: min(460px, calc(100vw - 32px)) !important;
+    max-height: calc(100vh - 130px); overflow-y: auto; background: var(--card); border: 1px solid var(--line);
+    border-radius: 22px; box-shadow: 0 24px 60px rgba(20,22,28,.22); padding: 20px 20px 14px 20px; }}
+.st-key-chat_panel [data-testid="stChatMessage"] {{ background: #F7F6F3; border-radius: 16px; padding: 10px 12px; margin-bottom: 8px; }}
+.st-key-chat_panel [data-testid="stChatMessage"] p, .st-key-chat_panel [data-testid="stChatMessage"] li
+    {{ font-size: 14px; line-height: 1.5; }}
+.analyst-head {{ display:flex; align-items:center; gap:12px; margin: 0 0 6px 0; }}
+.analyst-dot {{ width:38px; height:38px; border-radius: 50%; background: linear-gradient(135deg, #2346D8, #6C8BFF);
+    color:#fff; display:flex; align-items:center; justify-content:center; font: 700 15px 'Inter'; flex: 0 0 auto; }}
+.analyst-name {{ font: 700 17px 'Inter Tight', 'Inter'; }}
+.analyst-sub {{ font: 500 12.5px 'Inter'; color: var(--muted); }}
 /* Masthead */
 .msrd-mast {{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }}
 .msrd-brand {{ font: 700 22px/1.1 'Inter Tight', 'Inter', sans-serif; letter-spacing:-0.02em; }}
@@ -70,25 +81,25 @@ h3 {{ font-weight: 650 !important; }}
 .st-key-nav [data-testid="stRadioOption"] > div > div:first-child,
 [class*="st-key-seg_"] [data-testid="stRadioOption"] > div > div:first-child {{ display: none !important; }}
 .st-key-nav [data-testid="stRadioGroup"] {{ background: #ECEBE6; padding: 4px; border-radius: 12px; display: inline-flex; }}
-.st-key-nav [data-testid="stRadioOption"] {{ border-radius: 9px; margin: 0 !important; padding: 7px 16px !important;
+.st-key-nav [data-testid="stRadioOption"] {{ border-radius: 9px; margin: 0 !important; padding: 9px 22px !important;
     cursor: pointer; }}
 .st-key-nav [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--card); box-shadow: 0 1px 3px rgba(20,22,28,.12); }}
-.st-key-nav p {{ font: 600 14px 'Inter', sans-serif !important; color: #3A3D45; }}
+.st-key-nav p {{ font: 600 15.5px 'Inter', sans-serif !important; color: #3A3D45; }}
 .st-key-nav [data-testid="stRadioOption"][data-selected="true"] p {{ color: var(--ink) !important; }}
 [class*="st-key-seg_"] [data-testid="stRadioOption"] {{ border: 1px solid var(--line); border-radius: 999px;
-    margin: 0 !important; padding: 3px 12px !important; background: var(--card); cursor: pointer; }}
+    margin: 0 !important; padding: 6px 16px !important; background: var(--card); cursor: pointer; }}
 [class*="st-key-seg_"] [data-testid="stRadioOption"][data-selected="true"] {{ background: var(--ink); border-color: var(--ink); }}
 [class*="st-key-seg_"] [data-testid="stRadioOption"][data-selected="true"] p {{ color: #fff !important; }}
-[class*="st-key-seg_"] p {{ font: 600 12.5px 'Inter', sans-serif !important; }}
+[class*="st-key-seg_"] p {{ font: 600 14px 'Inter', sans-serif !important; }}
 /* Cards and panels */
 [class*="st-key-kpi_"], [class*="st-key-card_"], [class*="st-key-panel_"] {{
     background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow);
-    padding: 16px 18px 14px 18px; border-radius: 16px; }}
-[class*="st-key-kpi_"] {{ min-height: 218px; }}
-.kpi-label {{ font: 600 12.5px 'Inter', sans-serif; color: var(--muted); }}
-.kpi-value {{ font: 700 32px/1.1 'Inter Tight', 'Inter', sans-serif; letter-spacing: -0.02em; margin: 6px 0 4px 0; color: var(--ink); }}
+    padding: 26px 28px 22px 28px; border-radius: 20px; }}
+[class*="st-key-kpi_"] {{ min-height: 0; }}
+.kpi-label {{ font: 600 14px 'Inter', sans-serif; color: var(--muted); }}
+.kpi-value {{ font: 700 40px/1.1 'Inter Tight', 'Inter', sans-serif; letter-spacing: -0.02em; margin: 8px 0 6px 0; color: var(--ink); }}
 .kpi-value.small {{ font-size: 24px; }}
-.kpi-sub {{ font: 500 13px 'Inter', sans-serif; color: var(--muted); }}
+.kpi-sub {{ font: 500 14.5px/1.45 'Inter', sans-serif; color: var(--muted); }}
 .chip {{ display:inline-block; font: 600 12px 'Inter'; padding: 1px 8px; border-radius: 999px; margin-right: 6px; }}
 .chip.up {{ background: #DDF3E6; color: #0B5E35; }}
 .chip.down {{ background: #FCE1E5; color: #8E0B21; }}
@@ -101,17 +112,30 @@ h3 {{ font-weight: 650 !important; }}
 .insight-title {{ font: 600 12.5px 'Inter'; color: var(--muted); }}
 .insight-text {{ font: 500 15.5px/1.45 'Inter'; color: var(--ink); margin: 6px 0; }}
 .section-kicker {{ font: 600 12.5px 'Inter'; color: var(--cobalt); margin-bottom: -8px; }}
-.greeting {{ font: 700 30px/1.15 'Inter Tight', 'Inter'; letter-spacing: -0.02em; margin: 4px 0 2px 0; }}
-.greeting-sub {{ font: 500 15px 'Inter'; color: var(--muted); margin-bottom: 8px; }}
-.alert-row {{ display:flex; gap: 12px; align-items:flex-start; padding: 10px 0; border-top: 1px solid var(--line); }}
+.greeting {{ font: 700 40px/1.15 'Inter Tight', 'Inter'; letter-spacing: -0.025em; margin: 18px 0 6px 0; }}
+.greeting-sub {{ font: 500 19px/1.5 'Inter'; color: #3A3D45; margin-bottom: 18px; }}
+.section-title {{ font: 700 22px 'Inter Tight', 'Inter'; margin: 22px 0 4px 0; }}
+.big-line {{ font: 700 30px/1.25 'Inter Tight', 'Inter'; letter-spacing: -0.02em; margin: 4px 0 8px 0; }}
+.big-line.good {{ color: #0B5E35; }}
+.big-line.bad {{ color: #8E0B21; }}
+.plain {{ font: 500 16.5px/1.55 'Inter'; color: #3A3D45; margin: 2px 0; }}
+.soft {{ font: 500 14px/1.5 'Inter'; color: var(--muted); }}
+.idea {{ font: 700 24px/1.3 'Inter Tight', 'Inter'; margin: 6px 0 10px 0; }}
+.demo-banner {{ font: 500 13.5px 'Inter'; color: #6B4C00; background: #FFF6DC; border-radius: 999px; padding: 6px 14px;
+    display: inline-block; margin: 4px 0 2px 0; }}
+.prod-name {{ font: 700 20px 'Inter Tight', 'Inter'; }}
+.prod-price {{ font: 700 30px 'Inter Tight', 'Inter'; margin: 4px 0; }}
+.alert-row {{ display:flex; gap: 14px; align-items:flex-start; padding: 6px 0; }}
 .alert-row:first-child {{ border-top: none; }}
 .sev {{ flex: 0 0 auto; font: 700 11px 'Inter'; border-radius: 999px; padding: 2px 8px; margin-top: 2px; }}
 .sev.high {{ background: #FCE1E5; color: #8E0B21; }}
 .sev.medium {{ background: #FFF0C2; color: #6B4C00; }}
 .sev.low {{ background: #F1F0EC; color: #3A3D45; }}
-.alert-title {{ font: 600 14.5px 'Inter'; }}
-.alert-detail {{ font: 400 13.5px/1.45 'Inter'; color: #3A3D45; }}
-.alert-next {{ font: 500 13px 'Inter'; color: var(--cobalt); margin-top: 2px; }}
+.alert-title {{ font: 650 17px 'Inter'; }}
+.alert-detail {{ font: 400 15.5px/1.5 'Inter'; color: #3A3D45; margin-top: 2px; }}
+.alert-next {{ font: 500 14.5px 'Inter'; color: var(--muted); margin-top: 4px; }}
+.dot {{ width: 12px; height: 12px; border-radius: 50%; margin-top: 7px; flex: 0 0 auto; }}
+.dot.high {{ background: var(--bad); }} .dot.medium {{ background: #E3A008; }} .dot.low {{ background: #B9B7B0; }}
 .check-head {{ font: 600 13px 'Inter'; color: var(--muted); margin-top: 8px; }}
 .callout {{ border: 1px solid #F0E3B5; border-radius: 12px; background: #FFF9E8; padding: 10px 14px; font: 500 14px 'Inter'; }}
 .callout.bad {{ background: #FDF0F2; border-color: #F4CBD2; }}
@@ -124,8 +148,16 @@ h3 {{ font-weight: 650 !important; }}
 .stButton > button:hover {{ border-color: #C9C8C2 !important; color: var(--ink); background: #FAFAF8; }}
 .stButton > button[kind="primary"] {{ background: var(--ink) !important; color: #fff !important; border-color: var(--ink) !important; }}
 [class*="st-key-go_"] button, [class*="st-key-lm_go"] button {{ box-shadow: none !important; border: none !important;
-    background: transparent !important; color: var(--cobalt) !important; padding: 0 !important; min-height: 0 !important;
-    font-size: 13.5px !important; }}
+    background: transparent !important; color: var(--cobalt) !important; padding: 0 !important; min-height: 0 !important; }}
+[class*="st-key-go_"] button p, [class*="st-key-lm_go"] button p {{ color: var(--cobalt) !important; font-size: 15px !important; font-weight: 600; }}
+.stButton > button {{ padding: 8px 18px !important; }}
+[class*="st-key-tip_"] button {{ border: none !important; background: transparent !important; box-shadow: none !important;
+    padding: 0 !important; min-height: 0 !important; }}
+[class*="st-key-tip_"] button p {{ color: var(--muted) !important; font-size: 13.5px !important; font-weight: 500 !important; }}
+[class*="st-key-tip_"] button:hover p {{ color: var(--ink) !important; }}
+[class*="st-key-cta_"] button {{ background: var(--ink) !important; border-color: var(--ink) !important; border-radius: 12px !important;
+    padding: 10px 22px !important; }}
+[class*="st-key-cta_"] button p {{ color: #fff !important; font-size: 15.5px !important; }}
 [class*="st-key-go_"] button:hover {{ text-decoration: underline; }}
 [class*="st-key-suggest_"] button {{ border-radius: 999px !important; font-size: 12.5px !important; padding: 2px 10px !important;
     min-height: 0 !important; font-weight: 500 !important; text-align: left; }}

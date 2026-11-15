@@ -11,10 +11,10 @@ demo never waits for a live Gemini reply: live replies have taken 2–3 minutes.
 cd ~/Desktop/main-street-decision-intelligence && source .venv/bin/activate
 git switch milestone-5.4-simple-analyst
 python -m decisiondesk.precompute                      # seconds when warm
-MSRD_LLM_PROVIDER=offline streamlit run app/streamlit_app.py
+./start.sh offline        # opens http://localhost:8501 in the browser
 ```
 
-1. Open `http://localhost:8501/` (Overview). Leave the period on **Month to date**.
+1. The Overview opens by itself.
 2. Click each page once so nothing loads on stage, then return to Overview.
 3. Clear the chat if anything is in it.
 
@@ -22,14 +22,14 @@ MSRD_LLM_PROVIDER=offline streamlit run app/streamlit_app.py
 
 | Time | Click | Say |
 |---|---|---|
-| 0:00 | Overview, top | "This is Lone Star Taqueria, a fictional Austin restaurant with three years of synthetic records, labelled on screen. The owner opens it in the morning. Yesterday, Friday, sales were **$2,713**, **31% below a typical Friday**. The briefing says why, as far as the data can: guests were down 34%, and nachos and quesadillas fell even more than traffic. Each item says whether it's observed, forecast or simulated, and what to check next." |
-| 0:20 | Point at the KPI cards; open one **How was this calculated?** | "Month to date: revenue **$36,704**, operating profit **$3,444**, cash **$168,169**, and **$4,978** of bills due this week. Every card explains its own calculation." |
-| 0:35 | **One decision to consider** → **Open in the Decision Lab** | "It suggests one decision: tacos +5%. In the Decision Lab, taco demand drops from **1,514 to 1,431**, so revenue barely moves (+$32), but profit rises **+$286** over 28 days. The likely range is **−$5 to +$557**, and it beats the current plan in **95%** of simulated futures." |
-| 0:55 | Scroll to **Before you decide** | "Before deciding: why it might help, what could go wrong, and what to verify. Honestly: if customers are at the most price-sensitive end of our assumed range, it turns to **−$72**. Nothing changes until the owner does it." |
-| 1:10 | Click **Reset to current plan**; drag **Supplier ingredient prices** to **+8%** | "Now the supplier raises prices 8%. Demand doesn't move, but profit falls by **$1,820** this month, between −$1,999 and −$1,593." |
-| 1:25 | Sidebar chat: suggestion **What if I raise tacos prices 5%?**, then type **What about 3% instead?**, then click **Which is safer?** | "The analyst in the sidebar uses the same calculations. It remembers the conversation: 3% gives **+$171**, and it compares the two. It never computes numbers itself, and every number it says is checked against the calculation." |
-| 1:45 | Click the **bell** → **Notification settings** | "Alerts and the morning briefing can go to the owner's phone by iMessage, only after they opt in, and STOP always works." |
-| 1:55 | — | "The data is synthetic and the price effects are assumptions. Connecting a real restaurant's item sales is next." |
+| 0:00 | Overview | "This is Lone Star Taqueria, a made-up Austin restaurant with three years of demo records; the banner says so. The owner opens it in the morning and sees three numbers: sales this month **$36,704**, 7% more than last month; profit **$3,444**, about 9¢ of every dollar; and cash that covers this week's **$4,978** of bills." |
+| 0:15 | **What needs your attention** | "Yesterday was slower than a usual Friday: sales were **31%** below normal, and there were 34% fewer customers, which explains most of it. Nachos and quesadillas dropped even more. Each item says what to check next. It shows what moved, not why." |
+| 0:30 | **One idea to consider**, then **Try it in the Decision Lab** | "One idea: raise taco prices 5%. About **+$286** profit over the next four weeks. It could be anywhere from **−$5 to +$557**, and it came out ahead in **19 of 20** test runs." |
+| 0:50 | Scroll to **Before you decide** | "Before deciding: what could go wrong and what to check first. If customers react to price more strongly than we assumed, it turns into a loss (**−$72**). Nothing changes until the owner makes the change." |
+| 1:05 | Click **Supplier prices change**; drag to **+8%** | "Now the supplier raises prices 8%. Orders don't change, but profit drops by about **$1,820** this month." |
+| 1:20 | Click **Ask your analyst** (bottom right): **What if I raise tacos prices 5%?**, then type **What about 3% instead?**, then **Which is safer?** | "The analyst uses the same calculations and remembers the conversation: 3% gives about **+$171**, and it compares the two. Every number it says is checked." |
+| 1:45 | Click the **bell** → **Get these on my phone** | "The briefing and alerts can go to the owner's phone by iMessage, only after they opt in, and STOP always works." |
+| 1:55 | — | "The data is a demo and the price effects are assumptions. Connecting a real restaurant's item sales is next." |
 
 ## If asked
 

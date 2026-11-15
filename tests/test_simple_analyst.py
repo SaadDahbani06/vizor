@@ -124,14 +124,14 @@ def test_checklist_has_every_part_and_needs_approval(ctx):
         assert a[k], k
     lo, hi = a["impact"]["range_90"]
     assert lo <= a["impact"]["profit_change"] <= hi
-    assert any("elasticity" in x for x in a["assumptions"])
+    assert any("react to price" in x for x in a["assumptions"])
     assert any("assumption" in v for v in a["verify"])
     cost = ProductScenario("tacos", ingredient_cost_change_pct=8.0)
     cc = compare(ctx, simulate(ctx, cost), baseline(ctx, 28, "tacos"))
     b = br.decision_checklist(ctx, cost, cc, [])
     assert any("supplier invoices" in v for v in b["verify"])
-    assert not any("elasticity" in x for x in b["assumptions"])  # price sensitivity not relevant
-    assert any("loss" in r for r in b["risks"])
+    assert not any("react to price" in x for x in b["assumptions"])  # price sensitivity not relevant
+    assert any("lose money" in r for r in b["risks"])
 
 
 def test_briefing_action_is_a_checklist(brief):
