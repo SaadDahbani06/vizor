@@ -53,7 +53,7 @@ OUR_SERVING: dict[str, dict] = {
 NOT_A_RECOMMENDATION = (
     "Competitor menu prices show where your price sits locally. They do not show how your "
     "customers would react to a change, and they are not a reason on their own to change a price. "
-    "Use the Scenario Lab to test a change under stated price-sensitivity assumptions.")
+    "Use the Decision Lab to test a change under stated price-sensitivity assumptions.")
 
 
 @dataclass

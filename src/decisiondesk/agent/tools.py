@@ -574,14 +574,16 @@ def simulate_product_scenario(s: BusinessSession, product: str | None = None,
                               demand_shock_pct: float | None = None,
                               demand_shock_scope: str | None = None,
                               marketing_change_pct: float | None = None,
-                              horizon_days: int | None = None) -> dict:
+                              horizon_days: int | None = None,
+                              ingredient_cost_change_pct: float | None = None) -> dict:
     """Simulate one product scenario against the current plan; nulls keep the Scenario Lab's
     current setting (or no change)."""
     from ..decision.product_scenario import ProductScenario, baseline, compare, recommend, simulate
     inputs = {"product": product, "price_change_pct": price_change_pct,
               "supply_change_pct": supply_change_pct, "extra_units": extra_units,
               "demand_shock_pct": demand_shock_pct, "demand_shock_scope": demand_shock_scope,
-              "marketing_change_pct": marketing_change_pct, "horizon_days": horizon_days}
+              "marketing_change_pct": marketing_change_pct, "horizon_days": horizon_days,
+              "ingredient_cost_change_pct": ingredient_cost_change_pct}
     try:
         ctx = s.product_context()
     except ProductLayerUnavailable as exc:
@@ -603,7 +605,8 @@ def simulate_product_scenario(s: BusinessSession, product: str | None = None,
         float(pick("demand_shock_pct", demand_shock_pct)),
         str(pick("demand_shock_scope", demand_shock_scope, "product")),
         float(pick("marketing_change_pct", marketing_change_pct)),
-        int(horizon_days or cur.get("horizon_days") or 28))
+        int(horizon_days or cur.get("horizon_days") or 28),
+        float(pick("ingredient_cost_change_pct", ingredient_cost_change_pct)))
     s.state.product_scenario = asdict(sc)
     c = compare(ctx, simulate(ctx, sc), baseline(ctx, sc.horizon_days, sc.product_id))
     rec = recommend(ctx, sc)
@@ -764,14 +767,6 @@ TOOL_SCHEMAS = [
      "input_schema": {"type": "object", "additionalProperties": False, "required": ["period_days"],
                       "properties": {"period_days": {"type": "integer",
                                                      "description": "Days to summarize (7-365)."}}}},
-    {"name": "get_economic_indicators",
-     "description": "Retrieve point-in-time U.S. economic indicators from FRED relevant to this "
-                    "business (food CPI, menu-price CPI, unemployment; or CPI, retail sales). "
-                    "Values are as published on the business's last data date. Set refresh=true "
-                    "to query the FRED API live.",
-     "input_schema": {"type": "object", "additionalProperties": False, "required": ["refresh"],
-                      "properties": {"refresh": {"type": "boolean",
-                                                 "description": "Query FRED live (needs key)."}}}},
     {"name": "forecast_business",
      "description": "Forecast the next 28 days of a business metric with the model selected by "
                     "chronological validation, including an 80% interval and the measured "
@@ -820,13 +815,12 @@ TOOL_SCHEMAS = [
      "input_schema": {"type": "object", "additionalProperties": False, "required": ["starting_cash"],
                       "properties": {"starting_cash": _nullable("number", "Starting cash in USD.")}}},
     {"name": "create_alert_rule",
-     "description": "Save an in-app monitoring rule: 'fred_release' alerts on a new or revised "
-                    "FRED observation (optional threshold on the absolute 12-month % change); "
-                    "'cash_shortfall' alerts when simulated shortfall frequency reaches threshold.",
+     "description": "Save an in-app monitoring rule: 'cash_shortfall' alerts when the simulated "
+                    "28-day cash shortfall frequency reaches the threshold (0-1).",
      "input_schema": {"type": "object", "additionalProperties": False,
                       "required": ["kind", "series_id", "threshold"],
-                      "properties": {"kind": {"type": "string", "enum": ["fred_release", "cash_shortfall"]},
-                                     "series_id": _nullable("string", "FRED series id."),
+                      "properties": {"kind": {"type": "string", "enum": ["cash_shortfall"]},
+                                     "series_id": _nullable("string", "Leave null."),
                                      "threshold": _nullable("number", "Threshold.")}}},
     {"name": "list_alerts",
      "description": "List saved monitoring rules and the most recent alerts.",
@@ -853,16 +847,18 @@ TOOL_SCHEMAS = [
                       "properties": {"period_days": {"type": "integer", "enum": [28, 90, 365],
                                                      "description": "Lookback for observed sales."}}}},
     {"name": "simulate_product_scenario",
-     "description": "Scenario Lab: simulate changing ONE product's price, its ingredient orders, "
-                    "a one-time extra ingredient purchase, a demand shock, or marketing spend, "
+     "description": "Decision Lab: simulate changing ONE product's price, its ingredient orders, "
+                    "a one-time extra ingredient purchase, a supplier ingredient-cost change (applies "
+                    "to all ingredients), a demand shock, or marketing spend, "
                     "against the current plan over 7, 14 or 28 days. Returns revenue, operating "
                     "profit, cash flow, demand, units sold, stock-out risk, product impacts, the "
                     "owner's price policy check, a ranked recommendation and sensitivity. Pass "
-                    "null to keep the Scenario Lab's current value (or no change).",
+                    "null to keep the Decision Lab's current value (or no change).",
      "input_schema": {"type": "object", "additionalProperties": False,
                       "required": ["product", "price_change_pct", "supply_change_pct",
                                    "extra_units", "demand_shock_pct", "demand_shock_scope",
-                                   "marketing_change_pct", "horizon_days"],
+                                   "marketing_change_pct", "horizon_days",
+                                   "ingredient_cost_change_pct"],
                       "properties": {
                           "product": _nullable("string", "tacos, burritos, quesadillas, nachos "
                                                          "or drinks."),
@@ -876,7 +872,9 @@ TOOL_SCHEMAS = [
                                                                     "product) or 'all'."),
                           "marketing_change_pct": _nullable("number", "% change in marketing & "
                                                                       "software spend."),
-                          "horizon_days": _nullable("integer", "7, 14 or 28 days.")}}},
+                          "horizon_days": _nullable("integer", "7, 14 or 28 days."),
+                          "ingredient_cost_change_pct": _nullable("number", "Hypothetical % change "
+                                                                  "in supplier ingredient prices, e.g. 8.")}}},
     {"name": "explain_profit_change",
      "description": "Explain why operating profit changed between the last N days and the "
                     "previous N days: revenue, each expense category and each product's revenue "

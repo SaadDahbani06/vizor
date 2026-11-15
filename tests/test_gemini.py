@@ -100,7 +100,8 @@ def test_model_and_tool_configuration(session, monkeypatch):
     assert agent.mode == "gemini" and agent.label == "Gemini analyst"
     assert g.model == gem.DEFAULT_MODEL == "gemini-3.8-flash"
     decls = g.config.tools[0].function_declarations
-    assert len(decls) == len(TOOL_SCHEMAS) == 15
+    assert len(decls) == len(TOOL_SCHEMAS) == 14
+    assert "get_economic_indicators" not in {t["name"] for t in TOOL_SCHEMAS}  # no macro UI (5.4)
     assert {d.name for d in decls} == {t["name"] for t in TOOL_SCHEMAS}
     assert g.config.automatic_function_calling.disable is True
     assert "600 characters" in g.config.system_instruction  # iMessage channel note

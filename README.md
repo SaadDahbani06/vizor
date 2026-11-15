@@ -4,12 +4,12 @@
 
 Organization uploads structured internal data → system selects external evidence where relevant → forecasts and tests scenarios → ranks feasible decisions → explains uncertainty and assumptions → (later) monitors and alerts.
 
-## Hackathon demo (Milestone 5: dashboard and Scenario Lab)
+## Hackathon demo (Milestone 5.4: four pages and a financial analyst)
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt             # = pip install -e '.[dev,ml,ui,agent,messaging]'
-cp .env.example .env                        # optional keys: GEMINI_API_KEY, PHOTON_*, FRED_API_KEY, NESSIE_API_KEY
+cp .env.example .env                        # optional keys: GEMINI_API_KEY, PHOTON_*, NESSIE_API_KEY
 python -m decisiondesk.precompute           # warm the validated forecast caches (a few minutes once)
 streamlit run app/streamlit_app.py          # http://localhost:8501
 # optional, in a second terminal: answer iMessages (only ONE poller may run; see below)
@@ -17,34 +17,45 @@ python -m decisiondesk.messaging.worker run
 ```
 
 **Pages:**
-- **Overview:** what is happening now.
-- **Revenue & Operations:** why. Sections for revenue, products, inventory, profit & costs,
-  cash & obligations, and forecasts.
-- **Scenario Lab:** what happens if you change something. It is linkable, for example
-  `/?page=Scenario%20Lab&product=Tacos&price=5`.
-- **AI Analyst**, **Economy**, **Messaging**, and **Evidence & Data** (sources, model
-  validation, reconciliation, assumptions, Nessie banking, alerts).
+- **Overview:** yesterday vs a typical day, today's briefing (at most five labelled alerts with
+  next steps), KPI cards with "How was this calculated?", the trend, and one decision to consider.
+- **My Business:** sales & profit (clickable metrics), products (one at a time), inventory,
+  expenses, cash & bills, forecasts.
+- **Decision Lab:** change a price, ingredient orders, supplier ingredient prices, demand or
+  optional spending, and compare with the current plan: likely ranges, risks, what to verify, and
+  approval required. It is linkable, for example `/?page=Decision%20Lab&product=Tacos&price=5`.
+- **Local Market:** verified public menu prices of comparable Austin restaurants.
+- **Your Financial Analyst** (sidebar on every page) answers questions with the same tools and
+  handles follow-ups ("what about 3% instead?", "which is safer?").
+- **Settings** (gear, outside the navigation): Notifications (iMessage alerts, morning briefing,
+  send the briefing to your phone), Data, and Advanced diagnostics (model validation, uncertainty
+  calibration, reconciliation, assumptions, Nessie banking, cash alert rules).
 
 **What the data and numbers are:**
 - **Business data:** realistic **synthetic** U.S. small businesses (`synthetic_v2`). The demo
   restaurant has a five-product layer (tacos, burritos, quesadillas, nachos, drinks) with recipes
   and an ingredient ledger (`products.py`) that reconciles to the cent with the daily totals.
-- **Economic data:** **real** FRED observations, point-in-time. They are used as context and to
-  size stress tests, not as forecast inputs. Kwick365 powers the separate `us_demo` and
-  `us_validation` workflows, not the dashboard.
-- **Banking:** **simulated** Nessie records.
+- **Local market:** **public** menu prices, manually verified and dated; never used in forecasts
+  or profit.
+- **Banking:** **simulated** Nessie records (Advanced diagnostics only).
 - **Forecasts:** models chosen by back-testing in date order against baselines, including one
   demand model per product. Ranges come from the models' own out-of-sample errors.
-- **Scenarios:** price, supply, demand and marketing changes are **simulated** against the
-  current plan. The effects (elasticity, substitution, marketing response) are **stated
-  assumptions** with ranges, never estimated causal effects.
-- **The analyst:** Google Gemini (13 tools, manual function calling) or a rule-based offline
+- **Scenarios:** price, supply, supplier-cost, demand and marketing changes are **simulated**
+  against the current plan. The effects (price sensitivity, switching, marketing response) are
+  **stated assumptions** with ranges, never estimated causal effects.
+- **The analyst:** Google Gemini (14 tools, manual function calling) or a rule-based offline
   analyst. Gemini runs in the background, so the dashboard never waits for it. Every number it
   states must match a tool value *and* the concept it is said to be.
 - **Messaging:** Photon iMessage. The dashboard and the worker answer from the same explicitly
-  published scenario, and only one message poller can run at a time.
+  published scenario; only one message poller can run at a time; nothing is sent without opt-in
+  or a confirmed click.
+- **Economic (FRED) data:** no longer shown in the dashboard (Milestone 5.4). The point-in-time
+  FRED connector remains for the `ablation`, `us_validation` and `us_demo` research workflows.
 
 **Further reading:**
+- `docs/MILESTONE_5_4.md`: what changed in 5.4, what was kept, tests, launch and remaining work.
+- `docs/MILESTONE_5_4_RESEARCH.md`: audience, jobs to be done, regulatory facts, competitors.
+- `docs/ONBOARDING.md`: the plan for connecting a real business.
 - `docs/MILESTONE_5.md`: what is ML, what is accounting and what is assumed, with measured
   results.
 - `docs/MILESTONE_5_1_CALIBRATION.md`: how the uncertainty ranges were checked and fixed.
@@ -74,9 +85,10 @@ python -m decisiondesk.messaging.worker run
 - ✅ Business profile confirmation (industry, U.S. state, objective, constraints), CSV/Excel column-role mapping, supported-analysis detection (`profile.py`); source-selection catalog with literal status (`sources.py`)
 - ✅ End-to-end restaurant demo: real FRED + Kwick365 context → selected-model forecasts → Milestone 3 decision engine (`python -m decisiondesk.us_demo restaurant --state TX --confirm`)
 - ✅ Milestone 5.1 uncertainty calibration: Monte Carlo paths replay whole historical out-of-sample error windows (weekly blocks made multi-week totals too narrow: 68% vs 80% target); chronological out-of-sample check of every displayed range, labelled on screen (`calibration.py`, `docs/MILESTONE_5_1_CALIBRATION.md`)
+- ✅ Milestone 5.4: four pages (Overview, My Business, Decision Lab, Local Market), sidebar "Your Financial Analyst" chat with page context and follow-ups, structured briefing alerts and decision checklists, supplier ingredient-cost scenarios, notifications under Settings (opt-in morning briefing via `worker briefing --send`), Economy and Evidence pages removed from the UI; see `docs/MILESTONE_5_4.md`
 - ✅ Milestone 5.3: Local Market page (verified, dated official menu prices of 6 Austin restaurants, normalized servings, never a price recommendation, opens the Scenario Lab) and a Daily Owner Briefing with an approval-first action checklist; research report in `docs/MILESTONE_5_3_MARKET_RESEARCH.md`
 - ✅ Milestone 5.2 audit: fixed exploding substitution demand in the Scenario Lab and a lost analyst click; see `docs/MILESTONE_5_2_AUDIT.md`
-- ✅ Tests: 225 offline/mocked pass (Milestone 5.3 added 17; Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
+- ✅ Tests: 248 offline/mocked pass (Milestone 5.4 added 17 backend tests and rewrote the UI tests; Milestone 5.3 added 17; Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
 - ✅ Milestone 5 product layer: five products, recipes, Mon/Thu ingredient ledger with rationing of shared ingredients, sell-out times and a demand estimate that corrects censored sales; reconciles with daily revenue and food cost (`products.py`)
 - ✅ Milestone 5 product demand forecasts (one per product, existing leaderboard) and the Scenario Lab engine: price, ingredient orders, extra purchase, demand shock, marketing; substitution; profit vs cash; uncertainty; sensitivity; price-policy check; ranked recommendation (`decision/product_scenario.py`)
 - ✅ Milestone 5 dashboard numbers (`dashboard.py`) and redesigned seven-page Streamlit interface (`app/streamlit_app.py`, `ui/`)

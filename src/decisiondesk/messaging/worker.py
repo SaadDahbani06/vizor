@@ -5,10 +5,18 @@
   python -m decisiondesk.messaging.worker run               # poll every 4 s until Ctrl-C
   python -m decisiondesk.messaging.worker alerts            # scan risks, send opted-in alerts
   python -m decisiondesk.messaging.worker scenario          # which scenario replies will use
+  python -m decisiondesk.messaging.worker briefing          # print today's short briefing (sends nothing)
+  python -m decisiondesk.messaging.worker briefing --send   # send it to owners who opted in
+
+Morning briefing schedule: there is no built-in scheduler (a long-running timer inside the
+dashboard would be unreliable). To schedule it, run ``briefing --send`` from cron or launchd,
+e.g. ``0 8 * * * cd <repo> && .venv/bin/python -m decisiondesk.messaging.worker briefing --send``.
+It only messages owners who turned on "Daily briefing" in Settings -> Notifications, never after
+STOP, at most once per owner per day, within the daily send cap.
 
 Only ONE process may answer messages: ``run`` and ``alerts`` take the poller lock
 (``messaging/shared.py``) and refuse to start while the dashboard's auto-check (or another
-worker) holds it. Replies use the scenario published from the dashboard's Scenario Lab /
+worker) holds it. Replies use the scenario published from the dashboard's Decision Lab /
 Messaging page, or the business's default scenario when nothing is published.
 
 Event source: the documented list-messages polling path (no public URL needed). Webhooks are
@@ -50,6 +58,9 @@ def main() -> None:
     r.add_argument("--once", action="store_true")
     r.add_argument("--interval", type=float, default=4.0)
     sub.add_parser("alerts")
+    br = sub.add_parser("briefing")
+    br.add_argument("--send", action="store_true")
+    br.add_argument("--business", default="restaurant")
     sc = sub.add_parser("scenario")
     sc.add_argument("--business", default="restaurant")
     args = parser.parse_args()
@@ -57,8 +68,12 @@ def main() -> None:
     if args.cmd == "scenario":
         print(json.dumps(svc.scenario_source(args.business), indent=1))
         return
+    if args.cmd == "briefing" and not args.send:
+        from ..briefing import briefing_sms, daily_briefing
+        print(briefing_sms(daily_briefing(session_for(args.business))))
+        return
     lock = PollerLock("worker", ttl_s=3600)
-    if args.cmd in ("run", "alerts") and not lock.acquire():
+    if args.cmd in ("run", "alerts", "briefing") and not lock.acquire():
         raise SystemExit("Another messaging poller is active: " + describe_holder(lock.holder())
                          + ". Stop it (or turn off the dashboard's auto-check) first, so two "
                          "pollers never answer the same message.")
@@ -72,6 +87,13 @@ def main() -> None:
                 for sig in scan(svc.agent_for(owner).session):  # owner's own scenario
                     rec = svc.send_alert(owner.handle, sig)
                     print(sig.kind, "->", "sent" if rec else "not sent (consent/dedupe/pref)")
+            return
+        if args.cmd == "briefing":
+            from ..briefing import daily_briefing
+            for owner in [o for o in svc.store.owners.values() if o.authorized]:
+                b = daily_briefing(svc.agent_for(owner).session)
+                rec = svc.send_briefing(owner.handle, b, scheduled=True)
+                print(owner.masked, "->", f"status {rec['status']}" if rec else "not sent (opt-in/STOP/already sent)")
             return
         while True:
             if not lock.heartbeat():

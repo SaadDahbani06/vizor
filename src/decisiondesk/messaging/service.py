@@ -32,8 +32,11 @@ STATE_PATH = Path("data/cache/messaging_state.json")
 STOP_WORDS = {"STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "OPTOUT", "OPT-OUT"}
 START_WORDS = {"START", "UNSTOP", "YES", "SUBSCRIBE"}
 ALERT_KINDS = ("cash_shortfall", "low_runway", "cost_increase", "economic_release",
-               "expense_increase", "revenue_decline", "inventory_constraint")
+               "expense_increase", "revenue_decline", "inventory_constraint", "daily_briefing")
 FINAL = {"delivered", "failed"}
+# Business alerts on by default once the owner opts in. Not on by default: national economic
+# releases (not part of the customer product) and the daily briefing (its own explicit opt-in).
+DEFAULT_ALERT_KINDS = tuple(k for k in ALERT_KINDS if k not in ("economic_release", "daily_briefing"))
 
 
 def _now() -> datetime:
@@ -53,7 +56,7 @@ class Owner:
     stopped: bool = False
     consent_at: str | None = None
     consent_source: str | None = None
-    alert_prefs: list[str] = field(default_factory=lambda: list(ALERT_KINDS))
+    alert_prefs: list[str] = field(default_factory=lambda: list(DEFAULT_ALERT_KINDS))
     space_id: str | None = None
     agent_user_id: str | None = None
     last_inbound_at: str | None = None
@@ -311,6 +314,44 @@ class MessagingService:
         text = ("Main Street Risk Desk test message. Reply OPTIONS for recommendations, HELP for "
                 "commands, STOP to unsubscribe.")
         return self._send(o, text, key=f"msrd-test:{uuid.uuid4().hex[:16]}", kind="test")
+
+    def send_briefing(self, handle: str, briefing: dict, *, scheduled: bool = False,
+                      confirmed: bool = False) -> dict | None:
+        """Send the short daily briefing to one owner.
+
+        On demand (the owner clicks "Send to my phone"): requires ``confirmed=True``.
+        Scheduled (worker ``briefing --send``, run by cron): requires the alert opt-in AND the
+        "daily_briefing" preference, and sends at most once per owner per briefing date.
+        STOP always wins. Numbers must pass the grounding check against the briefing data."""
+        from ..briefing import briefing_sms
+        o = self.store.owner(handle)
+        if o.stopped:
+            self.store.event("briefing_skipped", f"{o.masked} sent STOP")
+            return None
+        if scheduled:
+            if not o.alerts_opt_in or "daily_briefing" not in o.alert_prefs:
+                self.store.event("briefing_skipped", f"{o.masked} has not opted in to daily briefings")
+                return None
+        elif not confirmed:
+            raise PermissionError("sending the briefing needs the owner's confirmation")
+        dedup = f"briefing:{o.handle}:{briefing['date']}"
+        if scheduled and dedup in self.store.sent_alert_keys:
+            return None
+        text = briefing_sms(briefing)
+        bad = ungrounded_numbers(text, [{k: v for k, v in briefing.items() if k != "text"}], [])
+        if bad:
+            self.store.event("briefing_blocked", f"ungrounded numbers {bad}")
+            self.store.save()
+            return None
+        key = (f"msrd-brief:{uuid.uuid5(uuid.NAMESPACE_URL, dedup).hex[:16]}" if scheduled
+               else f"msrd-brief:{uuid.uuid4().hex[:16]}")
+        rec = self._send(o, text, key=key, kind="briefing",
+                         evidence={"briefing_date": briefing["date"], "scheduled": scheduled})
+        if scheduled:
+            with self.store.lock:
+                self.store.sent_alert_keys.append(dedup)
+                self.store.save()
+        return rec
 
     def send_alert(self, handle: str, signal) -> dict | None:
         """Send one risk signal if consent, preference, dedupe and grounding all allow it."""

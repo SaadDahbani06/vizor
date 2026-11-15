@@ -51,7 +51,7 @@ def scenario_summary(state: dict | None) -> str:
         try:
             text = ProductScenario(**ps).describe()
             if text != "no change (current plan)":
-                parts.append(f"Scenario Lab: {text} over {ps.get('horizon_days', 28)} days")
+                parts.append(f"Decision Lab: {text} over {ps.get('horizon_days', 28)} days")
         except (TypeError, ValueError):
             pass
     return "; ".join(parts) or "default scenario (no changes)"

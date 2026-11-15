@@ -30,27 +30,38 @@ from .tools import TOOL_SCHEMAS, BusinessSession, run_tool
 MODEL = os.getenv("MSRD_AGENT_MODEL", "claude-opus-5-5")
 MAX_TOOL_ROUNDS = 8
 
-SYSTEM_PROMPT = """You are the analyst inside Main Street Risk Desk, a decision tool for U.S. small \
-businesses. You explain results; you never produce them yourself.
+SYSTEM_PROMPT = """You are "Your Financial Analyst" inside Main Street Risk Desk, a decision \
+tool for U.S. small businesses (restaurants and shops). You talk with the owner in plain, calm \
+language, like a trusted bookkeeper who also knows the numbers. You explain results; you never \
+produce them yourself.
 
 Rules you must follow:
-1. Every number you state (money, percentages, probabilities, forecasts, economic statistics) \
-must be copied from a tool result in this conversation or from the user's message. If you have \
-not run the tool that produces a number, run it or say you do not have it. Never estimate, \
-round loosely, or invent figures.
-2. To answer what-if questions, call the scenario tool with the changed assumption; changed \
-assumptions persist, so pass null for anything the user did not change.
-3. Always say which objective was optimized, name the recommended action (or say none is \
-defensible), give the change versus doing nothing with its range, the key assumptions and their \
-sources, and the main limitation.
-4. Label data honestly: the business data is synthetic unless the tool result says otherwise; \
-economic values are observed FRED data as of the stated date; food-cost or demand changes the \
-user proposes are hypothetical; action effects are modeled assumptions, not proven causal \
-effects. A simulated share of 100% is not a real-world guarantee.
+1. Every number you state (money, percentages, probabilities, forecasts) must be copied from a \
+tool result in this conversation or from the owner's message. If you have not run the tool that \
+produces a number, run it or say you do not have it. Never estimate, round loosely, or invent \
+figures.
+2. For what-if questions, call the scenario tool. Follow-ups refer to the conversation: "what \
+about 3% instead?" means the same product and the same kind of change with the new value; \
+"which is safer?" compares the scenarios already run (higher chance of beating the current plan \
+and a smaller possible loss is safer). Pass null for anything the owner did not change.
+3. When you suggest an action, say: what to do, why it might help, the expected change versus \
+keeping the current plan with its likely range, the key assumptions, what could go wrong, and \
+what to check first. If no action beats the current plan, say so.
+4. Be honest about where numbers come from: the business data is SYNTHETIC demo data unless the \
+tool result says otherwise; past figures are observed records; forecasts are model estimates \
+with measured accuracy; scenario results are simulations under stated assumptions (price \
+sensitivity is assumed, not measured) and are not proven causal effects. Competitor menu prices \
+show position only and are never by themselves a reason to change a price. Comparisons with a \
+typical day describe what changed, not why.
 5. If required information is missing (for example a starting cash balance or a budget), ask \
 for it instead of assuming.
-6. Recommendations need human approval. Never claim to have executed any business action.
-Keep answers short: a direct answer first, then the supporting numbers."""
+6. Every action needs the owner's approval. Never claim to have changed prices, placed orders, \
+moved money, contacted anyone, or sent messages.
+7. National economic indicators are not part of this product; if asked, say so and offer to \
+test a supplier cost change for the owner's own business instead.
+Avoid jargon: say "price sensitivity" rather than "elasticity" unless the owner uses the word, \
+"likely range" rather than "90% interval" (you may add "9 in 10 simulated months"). Keep answers \
+short: a direct answer first, then two to four supporting facts."""
 
 
 @dataclass
@@ -122,13 +133,16 @@ class DecisionAgent:
         return ANALYST_LABELS[self.mode]
 
     # ------------------------------------------------------------------ public
-    def ask(self, question: str) -> AgentReply:
+    def ask(self, question: str, context: dict | None = None) -> AgentReply:
+        """``context``: optional dashboard context, e.g. {"page": "Decision Lab", "product": "tacos"}.
+        It steers which product a follow-up refers to; it never supplies numbers."""
         self.user_texts.append(question)
+        self.planner.context = context or {}
         if self.mode == "offline":
             reply = self._offline(question)
         elif self.mode == "gemini":
             try:
-                reply = self._ask_gemini(question)
+                reply = self._ask_gemini(_with_context(question, context))
             except Exception as exc:  # noqa: BLE001 - any provider failure must degrade, not crash
                 from .gemini import GeminiUnavailable
                 reason = str(exc) if isinstance(exc, GeminiUnavailable) else type(exc).__name__
@@ -137,7 +151,7 @@ class DecisionAgent:
                 reply.fallback_reason = reason
                 reply.notice = f"(Gemini unavailable: {reason}. Answered by the offline analyst.)"
         else:
-            reply = self._ask_claude(question)
+            reply = self._ask_claude(_with_context(question, context))
         bad = ungrounded_numbers(reply.text, self.tool_outputs, self.user_texts)
         if bad and reply.mode in ("claude", "gemini"):
             try:
@@ -227,6 +241,13 @@ class DecisionAgent:
         return AgentReply(text, "claude", reply.tool_calls + calls, retried=True)
 
 
+def _with_context(question: str, context: dict | None) -> str:
+    if not context:
+        return question
+    bits = [f"{k}: {v}" for k, v in context.items() if v and k in ("page", "product", "section")]
+    return (f"[Dashboard context (not a number source): {'; '.join(bits)}]\n" if bits else "") + question
+
+
 # ====================================================================== offline analyst
 def _money(x) -> str:
     """$1,234 / -$1,234 (the sign before the dollar sign, so the grounding check reads it)."""
@@ -249,11 +270,113 @@ class OfflinePlanner:
 
     def __init__(self, session: BusinessSession):
         self.s = session
+        self.context: dict = {}
+        self.scenarios: list[tuple[dict, dict]] = []   # (inputs, output) of product scenarios run
+        self.last_kind: str | None = None              # last what-if tool, for follow-ups
+        self.last_food_pct: float | None = None
 
     def _call(self, calls, name, args):
         out = run_tool(self.s, name, args)
         calls.append({"name": name, "input": args, "output": out})
+        if name == "simulate_product_scenario" and out.get("available"):
+            self.scenarios.append((args, out))
+            self.last_kind = name
+        elif name == "evaluate_restaurant_actions":
+            self.last_kind = name
         return out
+
+    def _context_product(self) -> str | None:
+        p = str(self.context.get("product") or "").strip().lower()
+        p = {"taco": "tacos", "burrito": "burritos", "quesadilla": "quesadillas", "nacho": "nachos",
+             "drink": "drinks"}.get(p, p)
+        return p or None
+
+    # ---------------------------------------------------------------- follow-ups
+    LEVERS: ClassVar[tuple] = ("price_change_pct", "supply_change_pct", "ingredient_cost_change_pct",
+                               "demand_shock_pct", "marketing_change_pct")
+
+    def _followup(self, q: str, ql: str, pct, calls) -> AgentReply | None:
+        named = re.search(self.PRODUCT_RE, ql)
+        if re.search(r"which (one |option |scenario )?(is |was )?(safer|less risky|riskier|better)|"
+                     r"compare (them|those|the two|both)|which should i (pick|choose)", ql):
+            if len(self.scenarios) >= 2:
+                return AgentReply(self._safer_text(self.scenarios[-2][1], self.scenarios[-1][1]),
+                                  "offline", calls)
+            return AgentReply("Offline analyst. I need two scenarios to compare. Try one change "
+                              "(for example a price change), then another, then ask again.",
+                              "offline", calls)
+        if pct and not named and re.search(r"instead|what about|how about|and if|try|^and\b|"
+                                           r"what if it", ql):
+            v = float(pct.group(1))
+            if re.search(r"decreas|lower|cut|reduc|drop|fall|less", ql):
+                v = -abs(v)
+            if self.last_kind == "simulate_product_scenario" and self.scenarios:
+                args = dict(self.scenarios[-1][0])
+                lever = next((k for k in self.LEVERS if args.get(k)), "price_change_pct")
+                if v > 0 and (args.get(lever) or 0) < 0 and "-" not in pct.group(0):
+                    v = -v  # "what about 3% instead" after a price cut keeps the direction
+                args[lever] = v
+                out = self._call(calls, "simulate_product_scenario", args)
+                return AgentReply(self._product_scn_text(out), "offline", calls)
+            if self.last_kind == "evaluate_restaurant_actions":
+                out = self._call(calls, "evaluate_restaurant_actions",
+                                 {**self.NULL_RESTAURANT, "food_cost_change_pct": v})
+                return AgentReply(self._restaurant_text(out, q), "offline", calls)
+        if re.search(r"why", ql) and re.search(r"demand|orders|fewer|sell less|sales", ql) and \
+                re.search(r"price|rais|increase|go(es)? up", ql) and getattr(self.s, "has_products", False):
+            prev = next((o for a, o in reversed(self.scenarios) if a.get("price_change_pct")), None)
+            if prev is None:
+                pid = (named.group(1) + "s") if named else (self._context_product() or "tacos")
+                prev = self._call(calls, "simulate_product_scenario", self._scn(pid, price_change_pct=5.0))
+            return AgentReply(self._why_price_text(prev), "offline", calls)
+        return None
+
+    @staticmethod
+    def _safer_text(a: dict, b: dict) -> str:
+        def key(o):
+            return (o["probability_profit_improves_pct"], o["operating_profit"]["change_90pct_range"][0])
+        safer, other = (a, b) if key(a) >= key(b) else (b, a)
+        more = a if a["operating_profit"]["change"] >= b["operating_profit"]["change"] else b
+        lines = [("Offline analyst (rule-based, no language model). Comparing your last two scenarios "
+                 "(same simulated futures for both):")]
+        for o in (a, b):
+            p = o["operating_profit"]
+            lo, hi = p["change_90pct_range"]
+            lines.append(f"  {o['scenario_text']}: profit change {_money(p['change'])} over "
+                         f"{o['horizon_days']} days, likely range {_money(lo)} to {_money(hi)}, "
+                         f"beats the current plan in {o['probability_profit_improves_pct']}% of "
+                         "simulated futures.")
+        pa, pb = safer["probability_profit_improves_pct"], other["probability_profit_improves_pct"]
+        la, lb = safer["operating_profit"]["change_90pct_range"][0], other["operating_profit"]["change_90pct_range"][0]
+        if (pa, la) == (pb, lb):
+            why = "they are equally risky by these measures"
+        elif pa > pb:
+            why = "it beats the current plan more often" + (" and its worst likely outcome is better" if la > lb else "")
+        else:
+            why = "same chance of beating the current plan, and its worst likely outcome is better"
+        lines.append(f"Safer: {safer['scenario_text']} ({why}).")
+        if more is not safer:
+            lines.append(f"Higher expected profit: {more['scenario_text']}, with more risk.")
+        lines.append("Both rest on assumed price sensitivity; neither is a guarantee. Your approval "
+                     "is needed before any change.")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _why_price_text(o: dict) -> str:
+        d = o["selected_product_demand_units"]
+        a = o["assumptions"][0]
+        return "\n".join([
+            "Offline analyst (rule-based, no language model).",
+            (f"In the scenario \"{o['scenario_text']}\", forecast demand for the product goes from "
+            f"{d['baseline']:,} to {d['scenario']:,} units over {o['horizon_days']} days."),
+            (f"That comes from an assumed price sensitivity ({a['name'].replace('_', ' ')} {a['value']}, "
+            f"likely between {a['low']} and {a['high']}): when a price goes up, some customers order "
+            "less or pick a different item; the more negative the number, the more orders drop."),
+            ("It is an assumption, not something measured from your sales: your history has no "
+            "item-level price changes to learn it from. A short price test would show how your "
+            "customers really react."),
+            (f"Profit can still rise if the higher price per order outweighs the lost orders: here "
+            f"the profit change is {_money(o['operating_profit']['change'])}.")])
 
     def answer(self, q: str) -> AgentReply:
         ql = q.lower()
@@ -269,10 +392,19 @@ class OfflinePlanner:
                 out = self._call(calls, "get_local_market_prices",
                                  {"product": (prod.group(1) + "s") if prod else None})
                 return AgentReply(self._market_text(out), "offline", calls)
-            if re.search(r"brief|yesterday|what needs (my )?attention|today", ql):
+            follow = self._followup(q, ql, pct, calls)
+            if follow is not None:
+                return follow
+            if re.search(r"inflation|\bcpi\b|econom|\bfred\b|unemployment|interest rate|indicator|"
+                         r"price index", ql):
+                return AgentReply(
+                    "Offline analyst. National economic indicators are not part of Main Street Risk "
+                    "Desk; it focuses on your own sales, costs, stock and cash. If supplier prices "
+                    "are going up, I can test that for your business: ask for example \"what if "
+                    "supplier costs rise eight percent?\"", "offline", calls)
+            if re.search(r"brief|yesterday|what needs (my )?attention|today|focus on|tomorrow", ql):
                 out = self._call(calls, "get_daily_briefing", {})
-                return AgentReply("Offline analyst (rule-based, no language model).\n" + out["text"],
-                                  "offline", calls)
+                return AgentReply(self._briefing_answer(out, ql), "offline", calls)
             routed = self._product_route(q, ql, pct, calls)
             if routed is not None:
                 return routed
@@ -293,11 +425,6 @@ class OfflinePlanner:
                 out = self._call(calls, "evaluate_inventory_policies",
                                  {**self.NULL_RETAIL, "purchase_budget_usd": amount})
                 return AgentReply(self._inventory_text(out), "offline", calls)
-            if re.search(r"inflation|cpi|econom|fred|unemployment|interest|indicator|"
-                         r"price index|food[- ]price", ql):
-                live = bool(re.search(r"live|latest|current|today", ql))
-                out = self._call(calls, "get_economic_indicators", {"refresh": live})
-                return AgentReply(self._econ_text(out), "offline", calls)
             if re.search(r"forecast|predict|next month|next 28|demand", ql):
                 target = "units_sold" if re.search(r"demand|units|covers|traffic", ql) else "revenue"
                 out = self._call(calls, "forecast_business", {"target": target})
@@ -324,14 +451,38 @@ class OfflinePlanner:
             return AgentReply(f"I can't run that analysis: {exc}", "offline", calls)
         return AgentReply(
             "Offline analyst (rule-based, no language model). I can answer: business overview, "
-            "four-week forecasts, economic indicators from FRED, cash-shortfall risk, restaurant "
+            "today's briefing, four-week forecasts, cash-shortfall risk, restaurant "
             "what-ifs (food costs rising by a stated percent, demand becoming more "
             "price-sensitive), inventory budgets (a stated dollar budget), 'what should I "
             "do?', and for the demo restaurant: which product is most profitable, why profit "
             "changed, what a product price change would do (e.g. 'what if burrito prices rise five "
             "percent?' with a number) and "
-            "whether to buy more of a product's ingredients. Set GEMINI_API_KEY for free-form "
-            "questions.", "offline", calls)
+            "whether to buy more of a product's ingredients, supplier cost increases, and "
+            "follow-ups like 'what about three percent instead?' or 'which is safer?'. Set GEMINI_API_KEY for "
+            "free-form questions.", "offline", calls)
+
+    @staticmethod
+    def _briefing_answer(out: dict, ql: str) -> str:
+        head = "Offline analyst (rule-based, no language model)."
+        lines = out["text"].split("\n")
+        if re.search(r"why", ql) and re.search(r"yesterday|fell|drop|down|low", ql):
+            y = out["yesterday"]
+            body = [lines[1]]
+            drivers = [a for a in out["alerts"] if a["kind"] in ("sales_decline", "product_mix")]
+            body += [f"- {a['title']}: {a['detail']}" for a in drivers] or [
+                "Nothing stood out beyond normal day-to-day variation."]
+            if y.get("guests_change_pct") is not None and drivers:
+                body.append("These are comparisons with a typical day: they show what moved, not "
+                            "the cause (weather, events or staffing are not in the data).")
+            return "\n".join([head, *body])
+        if re.search(r"focus|tomorrow|attention|today", ql):
+            items = [f"- {a['title']}. Next step: {a['next_step']}" for a in out["alerts"]]
+            body = ["What to focus on:", *(items or ["- Nothing urgent is flagged."])]
+            if out.get("action"):
+                from ..briefing import checklist_text
+                body += checklist_text(out["action"])
+            return "\n".join([head, *body])
+        return head + "\n" + out["text"]
 
     # ---------------------------------------------------------------- product questions
     PRODUCT_RE: ClassVar[str] = r"(taco|burrito|quesadilla|nacho|drink)s?"
@@ -344,9 +495,14 @@ class OfflinePlanner:
                                   + out.get("what_is_needed", ""), "offline", calls)
             return None
         prod = re.search(self.PRODUCT_RE, ql)
-        pid = (prod.group(1) + "s") if prod else None
+        pid = (prod.group(1) + "s") if prod else self._context_product()
         down = bool(re.search(r"decreas|lower|cut|reduc|drop|fall|less", ql))
         val = None if not pct else (-1 if down else 1) * abs(float(pct.group(1)))
+        if val is not None and re.search(r"supplier|ingredient (cost|price)s?|wholesale|vendor", ql) and \
+                re.search(r"cost|price|charg|increase|rise|up", ql):
+            out = self._call(calls, "simulate_product_scenario", self._scn(
+                pid or self._context_product() or "tacos", ingredient_cost_change_pct=val))
+            return AgentReply(self._product_scn_text(out), "offline", calls)
         if re.search(r"why .*profit|profit .*(drop|fall|fell|declin|down|change|up|rise|rose|grew)", ql):
             out = self._call(calls, "explain_profit_change", {"period_days": 28})
             return AgentReply(self._profit_change_text(out), "offline", calls)
@@ -406,7 +562,7 @@ class OfflinePlanner:
     def _scn(pid, **kw) -> dict:
         base = {"product": pid, "price_change_pct": 0.0, "supply_change_pct": 0.0,
                 "extra_units": 0.0, "demand_shock_pct": 0.0, "demand_shock_scope": "product",
-                "marketing_change_pct": 0.0, "horizon_days": 28}
+                "marketing_change_pct": 0.0, "horizon_days": 28, "ingredient_cost_change_pct": 0.0}
         return base | kw
 
     @staticmethod

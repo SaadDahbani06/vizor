@@ -324,7 +324,8 @@ def test_nessie_summary_tool_and_ui_display(nessie_fake, monkeypatch, restaurant
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
     assert not at.exception
-    at.radio(key="nav").set_value("Evidence & Data").run()
+    at.button(key="open_settings").click().run()  # 5.4: Settings -> Advanced diagnostics
+    at.radio(key="seg_settings").set_value("Advanced diagnostics").run()
     at.radio(key="seg_ev_section").set_value("Banking (Nessie)").run()
     at.button(key="bank_go").click().run()
     assert not at.exception
@@ -342,15 +343,14 @@ def test_ui_runs_end_to_end_without_credentials(monkeypatch):
     at = AppTest.from_file(APP, default_timeout=300)
     at.run()
     assert not at.exception and "SYNTHETIC" in at.info[0].value
-    at.radio(key="nav").set_value("Scenario Lab").run()
+    at.radio(key="nav").set_value("Decision Lab").run()
     at.button(key="d_run").click().run()
     assert not at.exception and (at.success or at.warning)
-    at.radio(key="nav").set_value("AI Analyst").run()
     at.chat_input(key="chat_in").set_value("What should I do if my food costs increase 15%?").run()
     assert not at.exception and "Offline analyst" in at.chat_message[-1].markdown[0].value
     at.radio(key="source").set_value("Demo retailer (Columbus, OH)").run()
     assert not at.exception and "Maple Street Hardware" in at.info[0].value
-    at.radio(key="nav").set_value("Scenario Lab").run()
+    at.radio(key="nav").set_value("Decision Lab").run()
     assert not at.exception
     assert any("Product-level analytics need" in m.value for m in at.markdown)  # empty state
     at.button(key="d_run").click().run()
@@ -385,4 +385,6 @@ def test_offline_fallback_and_indicator_questions_are_grounded(restaurant, tmp_p
     help_reply = agent.ask("Tell me a joke")
     assert help_reply.tool_calls == [] and help_reply.grounded, help_reply.ungrounded
     econ = agent.ask("What do current U.S. food-price indicators show?")
-    assert econ.tool_calls[0]["name"] == "get_economic_indicators" and econ.grounded
+    # Milestone 5.4: national indicators are not part of the product; the analyst says so and
+    # offers a business-specific supplier cost test instead (no FRED call).
+    assert econ.tool_calls == [] and econ.grounded and "not part of" in econ.text

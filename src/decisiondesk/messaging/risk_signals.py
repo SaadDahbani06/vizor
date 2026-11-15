@@ -46,7 +46,7 @@ def _money(x) -> str:
     return f"-${abs(x):,.0f}" if round(x) < 0 else f"${x:,.0f}"
 
 
-def scan(session: BusinessSession) -> list[RiskSignal]:
+def scan(session: BusinessSession, *, include_economic: bool = False) -> list[RiskSignal]:
     name = session.metadata.get("business_name", session.dataset).replace(" (fictional)", "")
     asof = str(session.origin.date())
     out: list[RiskSignal] = []
@@ -91,7 +91,10 @@ def scan(session: BusinessSession) -> list[RiskSignal]:
             out.append(RiskSignal("cost_increase", "warning", "Rising food costs", text,
                                   _key("cost", name, asof, st.food_cost_change_pct, top), [dec]))
 
-    econ = run_tool(session, "get_economic_indicators", {"refresh": False})
+    # National economic (FRED) alerts are not part of the customer product (Milestone 5.4); the
+    # signal is kept for developers and tests via include_economic=True.
+    econ = run_tool(session, "get_economic_indicators", {"refresh": False}) if include_economic \
+        else {"observations": []}
     for o in econ["observations"]:
         if o["series_id"] in ("CUSR0000SAF11", "CPIAUCSL") and o["change_12m"] is not None \
                 and abs(o["change_12m"]) >= CPI_ALERT_PCT:

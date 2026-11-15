@@ -100,6 +100,7 @@ class ProductScenario:
     demand_shock_scope: str = "product"  # "product" | "all"
     marketing_change_pct: float = 0.0
     horizon_days: int = 28
+    ingredient_cost_change_pct: float = 0.0  # supplier/ingredient price change for ALL ingredients
 
     def __post_init__(self) -> None:
         if self.product_id not in PRODUCT_IDS:
@@ -118,11 +119,14 @@ class ProductScenario:
             raise ValueError("demand shock scope must be 'product' or 'all'")
         if not -100 <= self.marketing_change_pct <= 100:
             raise ValueError("marketing change must be between -100% and +100%")
+        if not -50 <= self.ingredient_cost_change_pct <= 100:
+            raise ValueError("ingredient cost change must be between -50% and +100%")
 
     @property
     def is_baseline(self) -> bool:
         return not any((self.price_change_pct, self.supply_change_pct, self.extra_units,
-                        self.demand_shock_pct, self.marketing_change_pct))
+                        self.demand_shock_pct, self.marketing_change_pct,
+                        self.ingredient_cost_change_pct))
 
     def describe(self) -> str:
         name = {p.product_id: p.name for p in PRODUCTS}[self.product_id]
@@ -138,6 +142,8 @@ class ProductScenario:
             parts.append(f"demand for {scope} {self.demand_shock_pct:+g}%")
         if self.marketing_change_pct:
             parts.append(f"marketing spend {self.marketing_change_pct:+g}%")
+        if self.ingredient_cost_change_pct:
+            parts.append(f"supplier ingredient costs {self.ingredient_cost_change_pct:+g}%")
         return ", ".join(parts) or "no change (current plan)"
 
 
@@ -317,6 +323,8 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
     usage = ctx.expected_usage()                                                       # 28 x K
     sel_usage = np.outer(np.array([ctx.bundle.targets[f"demand_{sc.product_id}"].point]).clip(0)[0],
                          BOM[i_sel])                                                   # 28 x K
+    cost_mult = 1 + sc.ingredient_cost_change_pct / 100   # supplier price shock (1.0 = none)
+    ing_cost = ctx.ing_cost * cost_mult
     stock = np.tile(ctx.start_stock, (n, 1))
     sold = np.zeros((n, H, P))
     lost = np.zeros((n, H, P))
@@ -331,11 +339,11 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
                                + sc.supply_change_pct / 100 * sel_usage[list(span)].sum(axis=0))
             q = np.maximum(0.0, target[None, :] - stock)
             stock = stock + q
-            purchases[:, t] += q @ ctx.ing_cost
+            purchases[:, t] += q @ ing_cost
         if t == 0 and sc.extra_units:
             extra = sc.extra_units * BOM[i_sel]
             stock = stock + extra
-            purchases[:, 0] += extra @ ctx.ing_cost
+            purchases[:, 0] += extra @ ing_cost
         d = D[:, t, :]
         makeable[:, t] = _makeable(stock, d, i_sel, uses)
         fill, _ = ration(d, stock)
@@ -357,10 +365,10 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
     mains_sold = sold[:, :, MAIN_IDX].sum(axis=-1)
     guests = mains_sold / ctx.mains_per_guest
     prod_rev = sold * prices                                                           # n x H x P
-    cogs = sold * ctx.unit_cost
+    cogs = sold * ctx.unit_cost * cost_mult
     revenue = prod_rev.sum(axis=-1) + ctx.other_rev_per_main * mains_sold
     card = CARD_FEE_RATE * revenue
-    other_food = ctx.other_food_per_main * mains_sold
+    other_food = ctx.other_food_per_main * cost_mult * mains_sold
     packaging = PACKAGING_PER_GUEST * guests
     variable = cogs.sum(axis=-1) + other_food + packaging + card
     mkt_daily = ctx.marketing_monthly * 12 / 365.25 * sc.marketing_change_pct / 100
@@ -375,7 +383,7 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
     if H > 7:
         paid[:, 7:] += purchases[:, :H - 7]
     cash = 0.15 * revenue + card_in - card - paid - other_food - packaging - fixed
-    end_value = stock @ ctx.ing_cost
+    end_value = stock @ ing_cost
     assumptions = [asdict(ELASTICITY[sc.product_id]) | {"note": ELASTICITY_NOTE},
                    asdict(SUBSTITUTION), asdict(MARKETING_RESPONSE)]
     return SimResult(sc, H, dates, D, sold, lost, makeable, revenue, variable, fixed, profit,

@@ -15,12 +15,12 @@ def finish(chart, height: int = 280):
     return (chart.properties(height=height, background=CARD)
             .configure_view(stroke=None)
             .configure_axis(labelFont=FONT, titleFont=FONT, labelColor=MUTED, titleColor=MUTED,
-                            gridColor=GRID, domainColor=INK, tickColor=INK, labelFontSize=11,
+                            gridColor=GRID, domainColor="#CFCEC8", tickColor="#CFCEC8", labelFontSize=11,
                             titleFontSize=11, titleFontWeight=600)
             .configure_legend(labelFont=FONT, titleFont=FONT, orient="top", title=None,
                               labelFontSize=12, symbolStrokeWidth=3)
-            .configure_title(font="Space Grotesk", fontSize=15, anchor="start", color=INK,
-                             fontWeight=700))
+            .configure_title(font="Inter", fontSize=14, anchor="start", color=INK,
+                             fontWeight=600))
 
 
 def _money_axis(title=None):

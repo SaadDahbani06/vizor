@@ -185,7 +185,7 @@ def test_analyst_routes_market_and_briefing_questions(rs):
     assert out["available"] and not out["sufficient"]
 
 
-def test_local_market_page_opens_the_scenario_lab(monkeypatch):
+def test_local_market_page_opens_the_decision_lab(monkeypatch):
     monkeypatch.setenv("MSRD_FAST", "1")
     from streamlit.testing.v1 import AppTest
     at = AppTest.from_file(APP, default_timeout=300)
@@ -196,6 +196,6 @@ def test_local_market_page_opens_the_scenario_lab(monkeypatch):
     labels = {m.label: m.value for m in at.metric}
     assert labels["Verified comparables"] == "4" and labels["Peer median"] == "$14.93"
     at.button(key="lm_go_Lower").click().run()
-    assert at.radio(key="nav").value == "Scenario Lab"
+    assert at.radio(key="nav").value == "Decision Lab"
     assert at.slider(key="sl_price").value == -5.0 and at.selectbox(key="sl_product").value == "Tacos"
     assert not at.exception
