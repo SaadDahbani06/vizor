@@ -326,3 +326,28 @@ def trend(frame: pd.DataFrame, *, weekly: bool = True, height: int = 280):
                  alt.Tooltip("profit:Q", title="Profit", format="$,.0f")]).add_params(hover)
     zero = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(color="#D5D4CF", strokeDash=[3, 3]).encode(y="y:Q")
     return finish(alt.layer(area, prof, zero, rule), height)
+
+
+def followup_orders(daily: dict, *, title: str, height: int = 260):
+    """Decision follow-up: cumulative actual orders against the two predictions frozen at approval
+    (with the change, and with no change), each with its 80% band. ``daily`` comes from
+    ``decision.followup.evaluate``."""
+    dates = pd.to_datetime(daily["dates"])
+    dom = ["Predicted with your change", "Predicted with no change"]
+    rows = [pd.DataFrame({"date": dates, "series": name, "mean": daily[key]["expected"],
+                          "lo": daily[key]["low"], "hi": daily[key]["high"]})
+            for name, key in zip(dom, ("with_change", "no_change"), strict=True)]
+    long = pd.concat(rows)
+    color = alt.Color("series:N", scale=alt.Scale(domain=dom + ["Actual"], range=[COBALT, BASELINE, INK]),
+                      legend=alt.Legend(title=None))
+    x = alt.X("date:T", title=None, axis=alt.Axis(format="%b %d"))
+    band = alt.Chart(long).mark_area(opacity=0.13).encode(
+        x=x, y=alt.Y("lo:Q", title="orders since the change (running total)"), y2="hi:Q", color=color)
+    line = alt.Chart(long).mark_line(strokeWidth=2).encode(
+        x=x, y="mean:Q", color=color,
+        strokeDash=alt.StrokeDash("series:N", scale=alt.Scale(domain=dom, range=[[1, 0], [6, 4]]), legend=None))
+    act = pd.DataFrame({"date": dates, "series": "Actual", "actual": np.cumsum(daily["actual_orders"])})
+    actual = alt.Chart(act).mark_line(strokeWidth=2.6, point=alt.OverlayMarkDef(size=28, filled=True)).encode(
+        x=x, y="actual:Q", color=color,
+        tooltip=[alt.Tooltip("date:T", format="%a %b %d"), alt.Tooltip("actual:Q", format=",.0f", title="Actual so far")])
+    return finish(alt.layer(band, line, actual).properties(title=title), height)

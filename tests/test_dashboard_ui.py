@@ -314,3 +314,27 @@ def test_review_action_approval_is_recorded_not_executed(at, tmp_path):
     assert "Make the change yourself" in at.session_state["lab_approved"]
     at.slider(key="sl_price").set_value(10.0).run()  # outside the owner's limit: no approve button
     assert "cta_approve" not in {x.key for x in at.button}
+
+
+def test_approved_decision_is_followed_up_against_its_prediction(at):
+    at.radio(key="nav").set_value("Decision Lab").run()
+    assert "No approved decisions yet" in md(at)
+    at.slider(key="sl_price").set_value(5.0).run()
+    at.checkbox(key="lab_ack").check().run()
+    at.button(key="cta_approve").click().run()
+    assert "Vizor saved its prediction" in at.session_state["lab_approved"]
+    made = [b for b in at.button if (b.key or "").startswith("dec_made_")]
+    assert len(made) == 1 and "Waiting for you" in md(at)
+    made[0].click().run()
+    replay = [b for b in at.button if (b.key or "").startswith("dec_replay_")]
+    assert len(replay) == 1 and "waiting for sales records" in md(at)
+    replay[0].click().run()
+    assert not at.exception
+    t = md(at)
+    assert "Demo replay · synthetic" in t and "Tacos orders over the 28 days since the change" in t
+    table = next(df.value for df in at.dataframe if "Predicted with your change" in df.value.columns)
+    assert list(table[""]) == ["Tacos orders", "Profit before fixed costs"]
+    assert set(table["Result"]) <= {"As predicted", "Above prediction", "Below prediction"}
+    assert not [b for b in at.button if (b.key or "").startswith("dec_replay_")]
+    for word in JARGON:
+        assert word not in visible(at), word

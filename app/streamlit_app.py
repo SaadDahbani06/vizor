@@ -1247,6 +1247,7 @@ def page_decision_lab() -> None:
         empty_state("Item-level what-ifs are not available for this business.")
     else:
         lab(ctx)
+        decisions_section(ctx)
     with st.expander("Whole-business options", expanded=ctx is None):
         business_wide_actions()
 
@@ -1395,7 +1396,7 @@ def lab(ctx) -> None:
             if gain and not sc.ingredient_cost_change_pct:
                 ack = st.checkbox("I've reviewed the risks and checks", key="lab_ack")
                 if st.button("Approve for my records", key="cta_approve", disabled=not ack, width="stretch"):
-                    _record_decision(a, cmp_)
+                    _record_decision(a, cmp_, ctx, sc, scen, base)
                 st.markdown(T.hint("Approval records your decision. Nothing is changed automatically: you update "
                                    "the menu, POS or supplier order yourself.", "ⓘ What approval means"),
                             unsafe_allow_html=True)
@@ -1453,23 +1454,127 @@ def lab(ctx) -> None:
                    "range. Not modelled: staff capacity, competitors' reactions. Data: sample (synthetic) records.")
 
 
-def _record_decision(a: dict, cmp_: dict) -> None:
-    """Append an approved decision to the local decision log (the owner acts on it themselves)."""
+def _record_decision(a: dict, cmp_: dict, ctx=None, sc=None, scen=None, base=None) -> None:
+    """Record an approved decision (the owner acts on it themselves) and freeze its prediction so
+    Vizor can check it later against what actually happens."""
     import json as _json
+
+    from decisiondesk.decision.followup import make_receipt
     entry = {"approved_at": datetime.now().isoformat(timespec="seconds"), "business": biz_name(),
              "action": a["action"], "expected_profit_change": round(cmp_["profit"]["change"]),
              "downside": round(cmp_["profit"]["change_90pct_range"][0]), "horizon_days": cmp_["horizon_days"],
              "checks": a["verify"], "executed_automatically": False}
     path = Path(os.getenv("MSRD_DECISION_LOG") or "data/cache/decision_log.json")
     try:
+        if ctx is not None and sc is not None:
+            receipt, paths = make_receipt(ctx, sc, scen, base, business=biz_name(), dataset=s.dataset,
+                                          action=a["action"], checks=a["verify"], approved_at=entry["approved_at"])
+            s.decision_store().add(receipt, paths)
+            entry["followup_id"] = receipt["id"]
         log = _json.loads(path.read_text()) if path.exists() else []
         log.append(entry)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(_json.dumps(log, indent=1))
         st.session_state["lab_approved"] = (f"Approved for your records: {a['action']} ({entry['approved_at'][:16]}). "
-                                            "Make the change yourself when you're ready.")
+                                            "Make the change yourself when you're ready. Vizor saved its prediction "
+                                            "and will check it below once you mark the change as made.")
     except OSError as exc:
-        st.session_state["lab_approved"] = f"Could not save the decision log: {exc}"
+        st.session_state["lab_approved"] = f"Could not save the decision: {exc}"
+
+
+FOLLOWUP_STATUS = {"waiting_for_change": ("Waiting for you", "neutral"), "tracking": ("Tracking", "neutral"),
+                   "too_early": ("Tracking", "neutral"), "partial": ("First results", "warn"),
+                   "complete": ("Checked", "pos"), "changed_too_late": ("Can't check", "neg")}
+VERDICT_WORDS = {"as_predicted": "As predicted", "above": "Above prediction", "below": "Below prediction"}
+
+
+def _mark_changed(rid: str, key: str) -> None:
+    d = st.session_state.get(key)
+    if d:
+        s.decision_store().update(rid, change_made_on=str(d))
+
+
+def _run_replay(rid: str) -> None:
+    from decisiondesk.decision.replay import demo_replay
+    from decisiondesk.synthetic_v2 import load_business
+    store = s.decision_store()
+    r = store.get(rid)
+    store.save_actuals(rid, demo_replay(product_ctx().history, load_business("restaurant"), r))
+
+
+def decisions_section(ctx) -> None:
+    """Approved decisions and how each turned out against the prediction frozen at approval."""
+    from decisiondesk.decision.followup import MIN_DAYS
+    store = s.decision_store()
+    receipts = store.receipts(s.dataset)
+    section("Your approved decisions", "When you approve a decision, Vizor saves what it predicted. Once you've made "
+            "the change, it compares that prediction with your actual sales: no hindsight, nothing refitted.")
+    if not receipts:
+        st.markdown('<div class="soft">No approved decisions yet. Approve one above and Vizor will check it '
+                    "against what actually happens.</div>", unsafe_allow_html=True)
+        return
+    evs = {e["id"]: e for e in s.followups()}
+    for r in receipts[:5]:
+        ev = evs[r["id"]]
+        label, kind = FOLLOWUP_STATUS[ev["status"]]
+        with st.container(border=True, key=f"dec_{r['id']}"):
+            st.markdown(f'<div class="plain"><b>{T.esc(r["action"])}</b> &nbsp;{T.status(label, kind)}</div>'
+                        f'<div class="soft">Approved {r["approved_at"][:10]} · predicted '
+                        f'{T.signed_money(r["predicted"]["profit_change"])} profit over {weeks(r["horizon_days"])} '
+                        f'({T.signed_money(r["predicted"]["profit_change_90pct_range"][0])} to '
+                        f'{T.signed_money(r["predicted"]["profit_change_90pct_range"][1])})</div>',
+                        unsafe_allow_html=True)
+            if ev["status"] == "waiting_for_change":
+                start, end = pd.Timestamp(r["forecast_start"]).date(), pd.Timestamp(r["forecast_end"]).date()
+                last_ok = end - pd.Timedelta(days=MIN_DAYS - 1)
+                c1, c2 = st.columns([2, 1], vertical_alignment="bottom")
+                c1.date_input("When did you make the change?", value=start, min_value=start,
+                              max_value=last_ok, key=f"dec_date_{r['id']}")
+                c2.button("I made this change", key=f"dec_made_{r['id']}", on_click=_mark_changed,
+                          args=(r["id"], f"dec_date_{r['id']}"), width="stretch")
+                continue
+            st.markdown(f'<div class="plain">{T.esc(ev["summary"])}</div>', unsafe_allow_html=True)
+            if ev["status"] in ("tracking", "too_early") and s.has_products:
+                st.button("Run a demo replay (synthetic 4 weeks)", key=f"dec_replay_{r['id']}",
+                          on_click=_run_replay, args=(r["id"],))
+                st.caption(f"The demo restaurant's records end on {r['data_through']}, so there are no real sales "
+                           "after this approval. The replay generates four synthetic weeks with your change applied, "
+                           "using the demo data generator's rules (not Vizor's forecast), so you can see a finished "
+                           "follow-up. It says nothing about a real business.")
+            if "orders" not in ev:
+                continue
+            o, c = ev["orders"], ev["profit_before_fixed_costs"]
+            if ev.get("actuals_origin") == "SYNTHETIC_REPLAY":
+                st.markdown(T.status("Demo replay · synthetic", "warn"), unsafe_allow_html=True)
+            rows = []
+            for name_, m, fmt in ((f"{r['product']} orders", o, lambda v: f"{v:,.0f}"),
+                                  ("Profit before fixed costs", c, T.money)):
+                rows.append({"": name_, "Actual": fmt(m["actual"]),
+                             "Predicted with your change": f'{fmt(m["with_change"]["likely_range"][0])} to '
+                                                           f'{fmt(m["with_change"]["likely_range"][1])}',
+                             "Predicted with no change": f'{fmt(m["no_change"]["likely_range"][0])} to '
+                                                         f'{fmt(m["no_change"]["likely_range"][1])}',
+                             "Result": VERDICT_WORDS[m["verdict"]]})
+            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+            st.caption(f"Ranges: 8 in 10 of Vizor's test runs, saved on {r['approved_at'][:10]}. Days compared: "
+                       f"{ev['window'][0]} to {ev['window'][1]}. Records: {ev['actuals_label']}. Inside the range "
+                       "means consistent with the prediction, not proof the change caused it.")
+            st.altair_chart(charts.followup_orders(ev["daily"], title=f"{r['product']} orders since the change"),
+                            width="stretch")
+            pe = ev.get("price_evidence")
+            if pe:
+                with st.expander("What this tells us about price sensitivity"):
+                    st.markdown(T.esc(pe["text"]))
+                    st.caption(pe["limits"])
+            if ev.get("actuals_origin") == "SYNTHETIC_REPLAY":
+                act = store.actuals(r["id"])
+                with st.expander("Demo check: what the replay hid"):
+                    true_e = act.meta.get("hidden_true_price_sensitivity")
+                    st.markdown(f"The replay used a hidden price sensitivity of **{true_e}** for "
+                                f"{r['product'].lower()} (Vizor assumed {r['price_sensitivity_used']['value']}, "
+                                f"range {r['price_sensitivity_used']['low']} to {r['price_sensitivity_used']['high']}). "
+                                "Vizor never saw this value. It's shown here to check the follow-up, and it only "
+                                "applies to the synthetic replay.")
 
 
 def _reset_controls() -> None:

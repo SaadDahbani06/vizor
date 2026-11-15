@@ -27,6 +27,11 @@ of "do nothing" against the changes the owner can actually make, with the assump
 - **Decision Lab:** change a price, an order quantity, a supplier cost, demand or optional spending
   and compare with the current plan: likely range, chance it is better, what to verify. Any action
   needs the owner's approval; nothing is executed automatically.
+- **Decision follow-up:** an approved decision's prediction is saved, and once the owner marks the
+  change as made, Vizor compares it with later sales (as predicted / above / below). The demo
+  shows this with a clearly labelled synthetic replay. Learning price sensitivity from one test
+  was measured not to work, so it is reported, never applied. See
+  [docs/DECISION_FOLLOWUP.md](docs/DECISION_FOLLOWUP.md).
 - **Local Market:** dated, manually verified public menu prices of comparable Austin restaurants.
 - **Vizor AI:** a chat panel on every page. Common questions are answered instantly from verified
   numbers; analysis questions run the engines and Gemini writes one explanation that must cite the
@@ -70,7 +75,7 @@ The models, assumptions and their limits are described in [docs/MODELS.md](docs/
 Python 3.11 or newer, macOS or Linux (Windows works with `.venv\Scripts\activate`).
 
 ```bash
-git clone <repository-url> vizor && cd vizor
+git clone https://github.com/SaadDahbani06/vizor.git && cd vizor
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt      # = pip install -e '.[dev,ml,ui,agent,messaging]'
 cp .env.example .env                 # every key is optional; the demo runs offline
@@ -148,7 +153,7 @@ GitHub Actions runs ruff and the test suite on Python 3.11 and 3.13 (`.github/wo
 ## Contributing, security and license
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). Vizor is released under the
-MIT License ([LICENSE](LICENSE)); the copyright line is pending review by the project's founders.
+MIT License ([LICENSE](LICENSE)).
 
 ## Attribution
 

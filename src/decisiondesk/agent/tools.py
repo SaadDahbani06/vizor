@@ -91,6 +91,7 @@ class BusinessSession:
     leaderboard_cache_dir: str | None = None  # None -> data/cache/leaderboards
     nessie_client: object = None  # injectable Nessie client (tests); read-only use
     product_ctx: object = None    # lazily built Scenario Lab context (shared read-only)
+    decisions_dir: str | None = None  # approved decisions + follow-ups (None -> data/cache/decisions)
 
     # ------------------------------------------------------------------ construction
     @classmethod
@@ -130,6 +131,34 @@ class BusinessSession:
                 cache_dir=self.leaderboard_cache_dir)
         self.product_ctx.max_price_increase = self.state.max_price_increase
         return self.product_ctx
+
+    def decision_store(self):
+        from ..decision.followup import DecisionStore
+        return DecisionStore(self.decisions_dir)
+
+    def followup_actuals(self, receipt: dict):
+        """Records after an approved decision: the business's own records when they exist,
+        otherwise a demo replay the owner ran (clearly labelled synthetic), otherwise None."""
+        from ..decision.followup import actuals_from_history
+        if self.has_products:
+            own = actuals_from_history(self.product_context().history,
+                                       pd.Timestamp(receipt["forecast_start"]), self.data_label)
+            if own is not None:
+                return own
+        return self.decision_store().actuals(receipt["id"])
+
+    def followups(self) -> list[dict]:
+        """Every approved decision for this business with its follow-up, newest first."""
+        from ..decision.followup import evaluate
+        store = self.decision_store()
+        out = []
+        for r in store.receipts(self.dataset):
+            try:
+                paths = store.paths(r["id"])
+            except OSError:
+                paths = None
+            out.append(evaluate(r, paths, self.followup_actuals(r)))
+        return out
 
     @classmethod
     def from_upload(cls, path: str | Path, mapping: ColumnMapping, profile: BusinessProfile,
@@ -730,6 +759,37 @@ def get_daily_briefing(s: BusinessSession) -> dict:
     return s._stamp("get_daily_briefing", {}, {k: v for k, v in b.items()})
 
 
+def get_decision_followups(s: BusinessSession) -> dict:
+    """Decisions the owner approved and how each turned out against the prediction frozen at
+    approval (orders and profit before fixed costs)."""
+    rows = []
+    for ev in s.followups():
+        row = {"action": ev["action"], "approved_at": ev["approved_at"][:10], "status": ev["status"],
+               "change_made_on": ev["change_made_on"], "summary": ev["summary"],
+               "predicted_profit_change": round(ev["predicted_profit_change"]),
+               "predicted_profit_change_90pct_range": [round(v) for v in ev["predicted_profit_change_90pct_range"]],
+               "days_observed": ev["days_observed"]}
+        if "orders" in ev:
+            o, c = ev["orders"], ev["profit_before_fixed_costs"]
+            row |= {"records_used": ev.get("actuals_label"),
+                    "orders_actual": round(o["actual"]),
+                    "orders_predicted_range": [round(v) for v in o["with_change"]["likely_range"]],
+                    "orders_no_change_range": [round(v) for v in o["no_change"]["likely_range"]],
+                    "orders_verdict": o["verdict"],
+                    "profit_before_fixed_costs_actual": round(c["actual"]),
+                    "profit_before_fixed_costs_predicted_range": [round(v) for v in c["with_change"]["likely_range"]],
+                    "profit_verdict": c["verdict"]}
+        if ev.get("price_evidence"):
+            row["price_sensitivity_evidence"] = ev["price_evidence"]["text"]
+        rows.append(row)
+    return s._stamp("get_decision_followups", {}, {
+        "decisions": rows, "count": len(rows),
+        "meaning": ("Each approved decision's prediction is saved at approval and later compared with what "
+                    "happened. Likely ranges = 8 in 10 simulated futures. A result inside the predicted range "
+                    "is consistent with the prediction; it is not proof the change caused it."),
+        "data_label": s.data_label})
+
+
 def create_alert_rule(s: BusinessSession, kind: str, series_id: str | None = None,
                       threshold: float | None = None) -> dict:
     from ..monitor import MonitorStore
@@ -766,6 +826,7 @@ def get_banking_summary(s: BusinessSession) -> dict:
 
 
 TOOL_FUNCS = {
+    "get_decision_followups": get_decision_followups,
     "create_alert_rule": create_alert_rule,
     "list_alerts": list_alerts,
     "get_banking_summary": get_banking_summary,
@@ -971,6 +1032,13 @@ TOOL_SCHEMAS = [
      "input_schema": {"type": "object", "additionalProperties": False, "required": ["product"],
                       "properties": {"product": _nullable("string", "tacos, burritos, quesadillas, "
                                                                     "nachos or drinks.")}}},
+    {"name": "get_decision_followups",
+     "description": "Decisions the owner approved in the Decision Lab and how each turned out: the "
+                    "prediction saved at approval vs actual orders and profit before fixed costs, "
+                    "with a verdict (as predicted / above / below). Use for 'did the price change "
+                    "work?' or 'how did my decision go?'.",
+     "input_schema": {"type": "object", "additionalProperties": False, "required": [],
+                      "properties": {}}},
     {"name": "get_daily_briefing",
      "description": "The owner's daily briefing: yesterday's revenue, profit and guests vs a typical "
                     "same weekday, products that fell more than traffic, stock to watch, bills due "

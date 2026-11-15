@@ -193,6 +193,27 @@ def _mix(dates: pd.DatetimeIndex, holiday: np.ndarray, rng) -> np.ndarray:
     return raw / raw.sum(axis=1, keepdims=True)
 
 
+def estimate_demand(sold: np.ndarray, demand: np.ndarray, past_est: np.ndarray
+                    ) -> tuple[np.ndarray, np.ndarray]:
+    """One day's observable demand estimate per product, and the recorded sell-out times.
+
+    Normal day: sales. Sell-out day: sales divided by the share of daily demand that normally
+    arrives before the sell-out time (``INTRADAY``, an assumption); sold out at opening: mean of
+    the last four same-weekday estimates in ``past_est`` (earlier days only, so no look-ahead)."""
+    est = sold.astype(float).copy()
+    sellout = np.full(len(sold), "", dtype=object)
+    t = len(past_est)
+    for i in np.nonzero(sold < demand)[0]:
+        g = min(int(np.searchsorted(INTRADAY, sold[i] / demand[i])), len(_GRID) - 1)
+        sellout[i] = _clock(int(_GRID[g]))
+        if INTRADAY[g] > 0:
+            est[i] = sold[i] / INTRADAY[g]
+        else:
+            past = list(range(t - 7, -1, -7))[:4]
+            est[i] = float(np.mean(past_est[past, i])) if past else sold[i]
+    return est, sellout
+
+
 def _ar1(rng, n, phi, sd):
     e = rng.normal(0, sd, n)
     x = np.zeros(n)
@@ -285,15 +306,7 @@ def build_product_history(ds: BusinessDataset, seed: int = PRODUCT_SEED) -> Prod
         stock = np.maximum(stock - used[t], 0.0)
         closing[t] = stock
         # Observable demand estimate for the day (sell-out time recorded by the POS).
-        demand_est[t] = sold[t]
-        for i in np.nonzero(sold[t] < demand[t])[0]:
-            g = min(int(np.searchsorted(INTRADAY, sold[t, i] / demand[t, i])), len(_GRID) - 1)
-            sellout[t, i] = _clock(int(_GRID[g]))
-            if INTRADAY[g] > 0:
-                demand_est[t, i] = sold[t, i] / INTRADAY[g]
-            else:  # sold out at opening: fall back to past same-weekday estimates (causal)
-                past = list(range(t - 7, -1, -7))[:4]
-                demand_est[t, i] = float(np.mean(demand_est[past, i])) if past else sold[t, i]
+        demand_est[t], sellout[t] = estimate_demand(sold[t], demand[t], demand_est[:t])
 
     lost = demand - sold
     stockout = lost > 0

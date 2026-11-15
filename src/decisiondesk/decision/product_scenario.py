@@ -170,10 +170,21 @@ class ProductContext:
     _base_demand: np.ndarray | None = None           # sims x 28 x products
     _base_fixed: np.ndarray | None = None            # sims x 28
     _cache: dict = field(default_factory=dict)
+    # Price sensitivity per product. Starts as the shared assumption (ELASTICITY); the owner can
+    # replace one with a range learned from a decision follow-up (``decision.followup``).
+    elasticity: dict = field(default_factory=lambda: dict(ELASTICITY))
 
     @property
     def n_sims(self) -> int:
         return self.draws.n
+
+    def elasticity_for(self, product_id: str) -> Assumption:
+        return self.elasticity.get(product_id, ELASTICITY[product_id])
+
+    @property
+    def assumption_version(self) -> tuple:
+        """Changes whenever a price-sensitivity range changes (for caches keyed on scenarios)."""
+        return tuple((p, a.value, a.low, a.high) for p, a in sorted(self.elasticity.items()))
 
     def base_demand(self) -> np.ndarray:
         if self._base_demand is None:
@@ -296,7 +307,7 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
     # Price effect on the selected product, with substitution among main dishes.
     if sc.price_change_pct:
         p = sc.price_change_pct / 100
-        e = _draw(ctx, ELASTICITY[sc.product_id], fixed_levels.get("elasticity"))[:, None]
+        e = _draw(ctx, ctx.elasticity_for(sc.product_id), fixed_levels.get("elasticity"))[:, None]
         delta = D0[:, :, i_sel] * ((1 + p) ** e - 1)                                   # n x H
         D[:, :, i_sel] += delta
         prices[i_sel] = round(prices[i_sel] * (1 + p), 2)
@@ -384,7 +395,8 @@ def simulate(ctx: ProductContext, sc: ProductScenario, *, fixed_levels: dict[str
         paid[:, 7:] += purchases[:, :H - 7]
     cash = 0.15 * revenue + card_in - card - paid - other_food - packaging - fixed
     end_value = stock @ ing_cost
-    assumptions = [asdict(ELASTICITY[sc.product_id]) | {"note": ELASTICITY_NOTE},
+    el = ctx.elasticity_for(sc.product_id)
+    assumptions = [asdict(el) | {"note": el.note or ELASTICITY_NOTE},
                    asdict(SUBSTITUTION), asdict(MARKETING_RESPONSE)]
     return SimResult(sc, H, dates, D, sold, lost, makeable, revenue, variable, fixed, profit,
                      cash, purchases, prod_rev.sum(axis=1), (prod_rev - cogs).sum(axis=1), stock,
@@ -491,7 +503,7 @@ def sensitivity(ctx: ProductContext, sc: ProductScenario) -> list[dict]:
     """Mean profit change with each uncertain assumption pinned at its bounds."""
     base = baseline(ctx, sc.horizon_days, sc.product_id)
     rows = []
-    checks = [("elasticity", ELASTICITY[sc.product_id], sc.price_change_pct != 0),
+    checks = [("elasticity", ctx.elasticity_for(sc.product_id), sc.price_change_pct != 0),
               ("substitution", SUBSTITUTION, True),
               ("marketing", MARKETING_RESPONSE, sc.marketing_change_pct != 0)]
     for key, a, relevant in checks:

@@ -105,7 +105,7 @@ def test_model_and_tool_configuration(session, monkeypatch):
     # No GEMINI_MODEL: the default, chosen by measurement (Milestone 6: fastest model with quota)
     assert g.model == gem.DEFAULT_MODEL == "gemini-3.5-flash-lite"
     decls = g.config.tools[0].function_declarations
-    assert len(decls) == len(TOOL_SCHEMAS) == 15  # + get_key_numbers (Milestone 6)
+    assert len(decls) == len(TOOL_SCHEMAS) == 16  # + get_key_numbers (M6), get_decision_followups
     assert "get_economic_indicators" not in {t["name"] for t in TOOL_SCHEMAS}  # no macro UI (5.4)
     assert {d.name for d in decls} == {t["name"] for t in TOOL_SCHEMAS}
     assert g.config.automatic_function_calling.disable is True

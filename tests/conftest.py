@@ -4,7 +4,7 @@ The Streamlit app calls load_dotenv(), which would copy real keys from .env into
 process. Unless MSRD_LIVE=1 (opt-in live tests), every live credential is blanked; tests that
 need a credential set a fake one explicitly. Messaging state files are redirected to a temporary
 directory so tests never read or write the real (gitignored) state, which holds phone handles,
-and so is the published-scenario file and the poller lock.
+and so is the published-scenario file, the poller lock and the approved-decision store.
 """
 import os
 
@@ -27,4 +27,5 @@ def _no_live_credentials(monkeypatch, tmp_path):
     monkeypatch.setenv("MSRD_SCENARIO_STATE", str(tmp_path / "published_scenario.json"))
     monkeypatch.setenv("MSRD_POLLER_LOCK", str(tmp_path / "messaging_poller.lock"))
     monkeypatch.setenv("MSRD_DECISION_LOG", str(tmp_path / "decision_log.json"))
+    monkeypatch.setenv("MSRD_DECISIONS_DIR", str(tmp_path / "decisions"))
     yield

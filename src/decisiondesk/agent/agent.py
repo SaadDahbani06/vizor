@@ -34,7 +34,8 @@ ANSWER_DEADLINE_S = float(os.getenv("MSRD_ANSWER_DEADLINE_S", "40"))
 # open questions (default); "llm" = always the language model's tool loop (used by provider tests).
 EXPLAIN_TOOLS = {"simulate_product_scenario", "evaluate_restaurant_actions", "evaluate_inventory_policies",
                  "explain_profit_change", "get_daily_briefing", "get_local_market_prices",
-                 "get_product_performance", "assess_cash_risk", "forecast_business"}
+                 "get_product_performance", "assess_cash_risk", "forecast_business",
+                 "get_decision_followups"}
 MAX_TOOL_ROUNDS = 8
 
 SYSTEM_PROMPT = """You are Vizor AI, the financial analyst inside Vizor, a decision \
@@ -343,11 +344,19 @@ class OfflinePlanner:
              "drink": "drinks"}.get(p, p)
         return p or None
 
+    # Questions about how an approved decision turned out (checked before the fast facts, so "did the
+    # taco price change work?" is not answered with today's taco price).
+    FOLLOWUP_RE = (r"follow[- ]?up|approved decision|my decisions?\b|"
+                   r"(decision|change|approv\w*).*\b(work|worked|go|went|turn(ed)? out|pay off|paid off|help)\b|"
+                   r"\b(did|has|have)\b.*\b(price change|decision|change)\b.*\b(work|help|pay)")
+
     # ---------------------------------------------------------------- fast facts
     def fast(self, q: str) -> AgentReply | None:
         """Instant answers to the most common factual questions from verified records (one cached
         tool call, no simulation, no language model). None when the question is not one of them."""
         ql = q.lower().strip()
+        if re.search(self.FOLLOWUP_RE, ql):
+            return None
         if re.search(r"\d\s*%|percent|what if|instead|safer|should i|why|forecast|next (week|month)|"
                      r"outlook|run out|predict|compare|competitor|nearby", ql):
             return None
@@ -525,6 +534,9 @@ class OfflinePlanner:
                 out = self._call(calls, "get_local_market_prices",
                                  {"product": (prod.group(1) + "s") if prod else None})
                 return AgentReply(self._market_text(out), "offline", calls)
+            if re.search(self.FOLLOWUP_RE, ql):
+                out = self._call(calls, "get_decision_followups", {})
+                return AgentReply(self._followups_text(out), "offline", calls)
             follow = self._followup(q, ql, pct, calls)
             if follow is not None:
                 return follow
@@ -593,6 +605,19 @@ class OfflinePlanner:
             "whether to buy more of a product's ingredients, supplier cost increases, and "
             "follow-ups like 'what about three percent instead?' or 'which is safer?'. Set GEMINI_API_KEY for "
             "free-form questions.", "offline", calls, path="help")
+
+    @staticmethod
+    def _followups_text(out: dict) -> str:
+        head = "Offline analyst (rule-based, no language model)."
+        if not out["decisions"]:
+            return (f"{head} You haven't approved any decisions yet. Approve one in the Decision Lab and "
+                    "Vizor will check it against what actually happens.")
+        lines = [f"{head} Your approved decisions ({out['count']}):"]
+        for d in out["decisions"][:3]:
+            lines.append(f"- {d['action']} (approved {d['approved_at']}): {d['summary']}")
+            if d.get("records_used"):
+                lines.append(f"  Records used: {d['records_used']}.")
+        return "\n".join(lines)
 
     @staticmethod
     def _briefing_answer(out: dict, ql: str) -> str:

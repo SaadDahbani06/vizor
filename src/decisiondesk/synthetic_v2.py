@@ -112,35 +112,51 @@ def _payroll_days(dates, first_friday):
 
 
 # ----------------------------------------------------------------------------- restaurant
+RESTAURANT_HOLIDAY_MULT = {"thanksgiving": 0.0, "christmas": 0.0, "christmas_eve": 0.6,
+                           "new_years_day": 0.7, "new_years_eve": 1.15, "independence_day": 0.75,
+                           "mothers_day": 1.45, "valentines": 1.25, "super_bowl_sunday": 1.3,
+                           "cinco_de_mayo": 1.6, "easter": 0.85}
+RESTAURANT_PRICE_ELASTICITY = -0.7  # menu-wide, hidden from the models and decision engine
+RESTAURANT_COVER_DISPERSION = 40
+
+
+def restaurant_cover_level(dates: pd.DatetimeIndex, first_date: pd.Timestamp,
+                           price_index: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Deterministic part of the demo restaurant's daily guest count (before the random shock),
+    and the holiday labels. Used by ``make_restaurant`` and by the follow-up demo replay
+    (``decision.replay``), so the replay continues the same generating process."""
+    years = (dates - first_date).days / 365.25
+    doy = dates.day_of_year.to_numpy()
+    cal = us_calendar(range(dates[0].year, dates[-1].year + 1))
+    holiday = np.array([cal.get(d, "") for d in dates], dtype=object)
+    weekday = np.array([0.72, 0.80, 0.88, 0.98, 1.32, 1.42, 1.10])[dates.day_of_week]
+    season = 1 + 0.07 * np.sin(2 * np.pi * (doy - 60) / 365.25) + 0.04 * np.cos(4 * np.pi * doy / 365.25)
+    hmult = np.array([RESTAURANT_HOLIDAY_MULT.get(h, 1.0) for h in holiday])
+    sxsw = np.array([(d.month == 3 and 8 <= d.day <= 17) for d in dates])  # Austin festival weeks
+    event = np.where(sxsw, 1.22, 1.0)
+    price_effect = np.asarray(price_index, dtype=float) ** RESTAURANT_PRICE_ELASTICITY
+    level = 122 * (1 + 0.03 * np.asarray(years)) * weekday * season * hmult * event * price_effect
+    return level, holiday
+
+
 def make_restaurant(seed: int = 2026, end: str = END_DATE, days: int = DAYS) -> BusinessDataset:
     rng = np.random.default_rng(seed)
     dates = pd.date_range(end=end, periods=days, freq="D")
     n = len(dates)
-    years = (dates - dates[0]).days / 365.25
     doy = dates.day_of_year.to_numpy()
-    cal = us_calendar(range(dates[0].year, dates[-1].year + 1))
-    holiday = np.array([cal.get(d, "") for d in dates], dtype=object)
-
-    weekday = np.array([0.72, 0.80, 0.88, 0.98, 1.32, 1.42, 1.10])[dates.day_of_week]
-    season = 1 + 0.07 * np.sin(2 * np.pi * (doy - 60) / 365.25) + 0.04 * np.cos(4 * np.pi * doy / 365.25)
-    holiday_mult = {"thanksgiving": 0.0, "christmas": 0.0, "christmas_eve": 0.6,
-                    "new_years_day": 0.7, "new_years_eve": 1.15, "independence_day": 0.75,
-                    "mothers_day": 1.45, "valentines": 1.25, "super_bowl_sunday": 1.3,
-                    "cinco_de_mayo": 1.6, "easter": 0.85}
-    hmult = np.array([holiday_mult.get(h, 1.0) for h in holiday])
-    sxsw = np.array([(d.month == 3 and 8 <= d.day <= 17) for d in dates])  # Austin festival weeks
-    event = np.where(sxsw, 1.22, 1.0)
 
     # Menu price steps; demand responds with a true (hidden) elasticity of -0.7.
     price_steps = [("2024-03-01", 0.040), ("2025-02-01", 0.035), ("2026-03-01", 0.030)]
     price_index = np.ones(n)
     for when, pct in price_steps:
         price_index[dates >= pd.Timestamp(when)] *= 1 + pct
-    price_effect = price_index ** -0.7
+    level, holiday = restaurant_cover_level(dates, dates[0], price_index)
+    hmult = np.array([RESTAURANT_HOLIDAY_MULT.get(h, 1.0) for h in holiday])
+    season = 1 + 0.07 * np.sin(2 * np.pi * (doy - 60) / 365.25) + 0.04 * np.cos(4 * np.pi * doy / 365.25)
 
     shock = _ar1(rng, n, 0.55, 0.07)
-    mu = 122 * (1 + 0.03 * years) * weekday * season * hmult * event * price_effect * np.exp(shock)
-    covers = np.where(hmult == 0, 0, _negbin(rng, mu, 40))
+    mu = level * np.exp(shock)
+    covers = np.where(hmult == 0, 0, _negbin(rng, mu, RESTAURANT_COVER_DISPERSION))
     closed = hmult == 0
 
     weekend = np.isin(dates.day_of_week, [4, 5])
