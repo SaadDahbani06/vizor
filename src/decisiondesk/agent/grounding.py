@@ -23,7 +23,12 @@ from dataclasses import dataclass
 NUM_RE = re.compile(
     r"(?<![\w.])(?P<sign>[-+−])?(?P<cur>\$)?(?P<num>\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
     r"(?P<suf>\s?(?:k|K|M|million|thousand|bn|billion)\b)?(?P<pct>\s?%| percent| pp| percentage points)?")
-DATE_RE = re.compile(r"\b\d{4}-\d{2}(?:-\d{2})?\b")
+# Calendar dates are not checked as figures: ISO (2026-11-13) and written-out dates with a capitalized
+# month name (Oct 17, Nov 13, 2026, October 17th). Lowercase "may" in prose is not treated as a month.
+DATE_RE = re.compile(
+    r"\b\d{4}-\d{2}(?:-\d{2})?\b|"
+    r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)(?:[a-z]{0,6})\.?\s+\d{1,2}(?:st|nd|rd|th)?"
+    r"(?:,?\s+\d{4})?\b")
 ID_RE = re.compile(r"\b[A-Za-z_]+\d+[A-Za-z0-9_]*\b")  # identifiers start with a letter: p95, raise_prices_3pct, CUSR0000SAF11
 
 
@@ -106,8 +111,8 @@ CONCEPTS: dict[str, str] = {
     "inventory": r"inventor\w*|stock|on-hand|supply|supplies|ingredients?|deliver\w*",
     "demand": r"demand|orders?|guests?|covers?|customers?|units?|plates?",
     "accuracy": r"wape|mae|rmse|mape|accuracy|errors?",
-    "price": r"prices?|pricing|menu",
-    "cost": r"costs?|expenses?|spend\w*|cogs|payroll|labor|rent|bills?",
+    "price": r"prices?|pricing|menu|each|apiece",
+    "cost": r"costs?|expenses?|spend\w*|cogs|payroll|labor|rent|bills?|utilit\w*|insurance|repairs?|supplies",
     "food": r"food",
     "unemployment": r"unemployment|jobless",
     "inflation": r"cpi|inflation",
@@ -260,10 +265,13 @@ def check_numbers(reply: str, tool_outputs: list, user_texts: list[str]) -> list
             rec["verdict"] = "no_match"
             results.append(rec)
             continue
-        concept = nearest_concept(reply, m.start(), m.end(), money="$" in men.text)
+        money = "$" in men.text
+        concept = nearest_concept(reply, m.start(), m.end(), money=money)
         rec["concept"] = concept
         if concept is not None:
-            ok = any(concept in cs for v, cs in labelled if _matches(men, {v}))
+            # "sales" next to a plain count ("82 fewer taco sales") means units sold, not revenue
+            accept = {concept} | ({"demand"} if concept == "revenue" and not money and not men.is_pct else set())
+            ok = any(accept & cs for v, cs in labelled if _matches(men, {v}))
             if not ok:
                 rec["verdict"] = "context_mismatch"
         results.append(rec)

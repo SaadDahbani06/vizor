@@ -184,3 +184,32 @@ def test_worker_refuses_to_start_while_another_poller_runs(tmp_path):
     assert p.returncode != 0 and "Another messaging poller is active" in p.stderr
     assert "dashboard" in p.stderr
     held.release()
+
+
+def test_written_out_dates_are_not_checked_as_figures():
+    from decisiondesk.agent.grounding import ungrounded_numbers
+    tool = [{"gross_profit": 14585, "period": "2026-10-17 to 2026-11-13"}]
+    ok = "Over the last four weeks (Oct 17 – Nov 13, 2026), tacos made $14,585 in profit."
+    assert ungrounded_numbers(ok, tool, []) == []
+    assert ungrounded_numbers("From October 17th to November 13 profit was $14,585.", tool, []) == []
+    # a made-up figure next to a date is still caught, and lowercase "may" is not a month
+    assert ungrounded_numbers("On Nov 13, profit was $15,000.", tool, []) != []
+    assert ungrounded_numbers("Profit may 12 percent rise.", tool, []) != []
+
+
+def test_sales_next_to_a_count_can_mean_units_sold():
+    from decisiondesk.agent.grounding import ungrounded_numbers
+    tool = [{"selected_product_units_sold": {"change": -82}, "revenue": {"change": 32}}]
+    assert ungrounded_numbers("Taco sales would drop by 82.", tool, []) == []
+    # a dollar amount next to "sales" must still be a revenue figure
+    assert ungrounded_numbers("Taco sales would drop by $82.", tool, []) != []
+
+
+def test_unit_prices_and_named_expenses_are_read_correctly():
+    from decisiondesk.agent.grounding import ungrounded_numbers
+    tool = [{"products": [{"product": "Tacos", "menu_price": 12.75, "revenue": 19558, "units_sold": 1534}],
+             "drivers": [{"category": "Utilities", "current": 1743, "previous": 2007, "change": -264}]}]
+    assert ungrounded_numbers("Tacos had the highest sales at $19,558, selling 1,534 units at $12.75 each.",
+                              tool, []) == []
+    assert ungrounded_numbers("Utility expenses fell to $1,743 (down from $2,007), saving $264.", tool, []) == []
+    assert ungrounded_numbers("Utility expenses fell to $1,700.", tool, []) != []
