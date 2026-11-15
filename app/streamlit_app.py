@@ -52,6 +52,15 @@ MODE_KEYS = {"Change a price": ("sl_price",), "Order more or less": ("sl_supply"
 SAMPLE_NOTE = ("This demo uses a fictional business with computer-generated (synthetic) records so you can "
                "explore the product. It is not connected to a real bank, POS or accounting system. "
                "Connect your own data in Settings → Data.")
+PROVENANCE = {  # data_label -> (header label, chip style, explanation)
+    "SYNTHETIC": ("Demo Business · Sample Data", "warn", SAMPLE_NOTE),
+    "QUICKBOOKS SANDBOX": ("QuickBooks sandbox · test company", "warn",
+                           "Imported from Intuit's QuickBooks Online sandbox: a test company, not a real business."),
+    "QUICKBOOKS": ("Your data · QuickBooks", "pos", "Imported from your QuickBooks Online company."),
+    "UPLOADED USER DATA": ("Your data · uploaded file", "pos", "From a file you uploaded in this session."),
+    "UPLOADED TRANSACTIONS": ("Your data · uploaded transactions", "pos",
+                              "Built from a transactions file you uploaded in this session."),
+}
 NUM_WORDS = {1: "One", 2: "Two", 3: "Three", 4: "Four", 5: "Five"}
 
 st.set_page_config(page_title="Vizor", layout="wide", page_icon="🏪",
@@ -112,8 +121,16 @@ if "nav" not in st.session_state:  # deep links: ?page=Decision%20Lab, ?view=set
         open_settings(q.get("section") if q.get("section") in SETTINGS else "Notifications")
     if q.get("chat") == "open":
         st.session_state["chat_open"] = True
+if "_goto_nav" in st.session_state:  # set by _activate() after an import
+    st.session_state["nav"] = st.session_state.pop("_goto_nav")
 st.session_state.setdefault("view", None)
 st.session_state["_tip_n"] = 0  # unique keys for "How we estimated this" popovers on each run
+
+
+def dash_min_days() -> int:
+    """Days of history the tested forecast needs (rolling-origin validation + untouched holdout)."""
+    from decisiondesk.profile import MIN_DAYS as PROFILE_MIN
+    return int(PROFILE_MIN.get("leaderboard", 504))
 
 
 def product_ctx():
@@ -203,8 +220,9 @@ b = _briefing()
 demo = "SYNTHETIC" in s.data_label.upper()
 hdr = st.columns([2.3, 4.4, 1.95, 0.95, 0.6], vertical_alignment="center")
 with hdr[0]:
-    sample = (f'<span class="sample" title="{T.esc(SAMPLE_NOTE)}">Demo Business · Sample Data</span>' if demo
-              else f'<span class="status pos">{T.esc(s.data_label.title())}</span>')
+    _plabel, _pkind, _pnote = PROVENANCE.get(s.data_label, (s.data_label.title(), "pos", ""))
+    sample = (f'<span class="sample" title="{T.esc(_pnote)}">{T.esc(_plabel)}</span>' if _pkind == "warn"
+              else f'<span class="status pos" title="{T.esc(_pnote)}">{T.esc(_plabel)}</span>')
     st.markdown(f'<div class="brand"><div class="brand-mark">V</div><div><div class="brand-name">Vizor</div><div class="biz-line">{sample}</div></div></div>', unsafe_allow_html=True)
 with hdr[1]:
     page = st.radio("Navigate", PAGES, horizontal=True, key="nav", label_visibility="collapsed",
@@ -492,11 +510,13 @@ def page_overview() -> None:
                                        f"{prof['previous_margin_pct']:.1f}% last month."), unsafe_allow_html=True)
         st.button("Details →", key="go_profit", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Costs"})
-    ok = c["value"] is not None and c["value"] >= bills
-    with r1[2], st.container(key="kpi_cash" + ("__tblue" if ok else "__tneg")):
-        st.markdown(T.kpi_card("Cash available", T.money(c["value"]),
-                               delta_html=T.status("Covers this week's bills" if ok else "Below this week's bills",
-                                                   "pos" if ok else "neg"),
+    known = c["value"] is not None
+    ok = known and c["value"] >= bills
+    with r1[2], st.container(key="kpi_cash" + ("__tblue" if ok else "__tneg" if known else "")):
+        st.markdown(T.kpi_card("Cash available", T.money(c["value"]) if known else "Not entered",
+                               delta_html=T.status("Covers this week's bills" if ok else "Below this week's bills"
+                                                   if known else "No cash balance yet",
+                                                   "pos" if ok else "neg" if known else "warn"),
                                tooltip="Cash in your records at the end of yesterday: opening balance plus all money in "
                                        "and out (including owner draws). "
                                        + ("Cash flow is positive, so runway is not a concern." if c.get("runway_days") is None
@@ -518,12 +538,14 @@ def page_overview() -> None:
     if product_ctx() is not None:
         t = dash.product_table(s, "28d")
         risky = list(t[t["stockout_risk_7d"] >= 0.25]["product"])
-    itint = "__tneg" if low else "__twarn" if risky else "__tpos"
+    has_stock = inv.get("value") is not None
+    itint = "__tneg" if low else "__twarn" if risky else "__tpos" if has_stock else ""
     with r2[1], st.container(key="kpi_inventory" + itint):
         state = (T.status(f"{len(low)} ingredient(s) low", "neg") if low else
-                 T.status(f"{risky[0]} may sell out", "warn") if risky else T.status("Healthy", "pos"))
+                 T.status(f"{risky[0]} may sell out", "warn") if risky else
+                 T.status("Healthy", "pos") if has_stock else T.status("No stock data", "neutral"))
         nd = inv.get("next_delivery_in_days")
-        st.markdown(T.kpi_card("Inventory health", T.money(inv["value"]), delta_html=state,
+        st.markdown(T.kpi_card("Inventory health", T.money(inv["value"]) if has_stock else "Not in data", delta_html=state,
                                tooltip="Ingredients on hand at today's cost. 'Healthy' means every item should last until "
                                        "the next delivery at the expected pace"
                                        + (f"; next delivery in {nd} days." if nd else ".")), unsafe_allow_html=True)
@@ -943,7 +965,10 @@ def section_cash(stop) -> None:
     k = dash.kpis(s, "mtd")
     cols = st.columns(3, gap="small")
     with cols[0], st.container(key="kpi_cash_now"):
-        st.markdown(T.kpi_card("Cash on hand", T.money(k["cash"]["value"])), unsafe_allow_html=True)
+        cv = k["cash"]["value"]
+        st.markdown(T.kpi_card("Cash on hand", T.money(cv) if cv is not None else "Not entered",
+                               sub="" if cv is not None else "Add your current balance on the Data page"),
+                    unsafe_allow_html=True)
     if li.get("payables") is not None:
         with cols[1], st.container(key="kpi_bills14"):
             st.markdown(T.kpi_card("Bills, next 2 weeks", T.money(li["due_14d"])), unsafe_allow_html=True)
@@ -983,8 +1008,15 @@ def section_outlook() -> None:
     targets = [t for t in names if t == "net_cash_flow" or t in h.columns]
     c1, _ = st.columns([1, 2])
     target = c1.selectbox("Look ahead at", targets, key="fc_target", format_func=names.get)
-    with st.spinner("Looking ahead..."):
-        fc = run_tool(s, "forecast_business", {"target": target})
+    try:
+        with st.spinner("Looking ahead..."):
+            fc = run_tool(s, "forecast_business", {"target": target})
+    except ValueError:
+        n = len(h)
+        st.warning(f"Not enough history to forecast yet: {n} days of records, and a tested 4-week forecast needs "
+                   f"about {dash_min_days()} days (so it can be checked on past weeks it has not seen). No forecast is "
+                   "shown rather than an untested one.")
+        return
     v = fc["interval_80_total_validation"]
     money = target != "units_sold"
     f = (lambda x: T.money(x)) if money else (lambda x: f"{x:,.0f}")
@@ -1009,7 +1041,9 @@ def section_outlook() -> None:
                                           y_format="$,.0f" if money else ",.0f"), width="stretch")
         how(f"We tested several forecasting approaches on past weeks they had not seen and use the most accurate. "
             f"In that test, {v['total_hits']} of {v['windows']} past 4-week totals fell inside the 'most likely' "
-            f"range. Synthetic demo data: real accuracy is measured once your own records are connected.")
+            f"range. " + ("Synthetic demo data: real accuracy is measured once your own records are connected."
+                          if demo else "Measured on your own past records; past accuracy does not guarantee future "
+                          "accuracy."))
     if v.get("windows") and v.get("assessable") and v["total_coverage"] < 0.65:
         st.warning("This range may be too narrow: fewer past totals than expected fell inside it.")
     elif not v.get("windows"):
@@ -1470,66 +1504,252 @@ def _publish() -> None:
 
 
 # ================================================================================ SETTINGS: DATA
+def _activate(session_: BusinessSession, key: str) -> None:
+    _reset_lab()
+    # The page switch is applied on the next run, before the navigation widget exists (Streamlit
+    # forbids changing a widget's value after it has been drawn in the same run).
+    st.session_state.update(session=session_, agent=DecisionAgent(session_), chat=[], business_key=key,
+                            last_decision=None, pending=None, view=None, _goto_nav="Overview")
+
+
+def _show_ingest_report(rep: dict) -> None:
+    """What was read, skipped, de-duplicated and reconciled: shown before anything is analysed."""
+    c = st.columns(4)
+    c[0].metric("Records read", f"{rep.get('n_records_read', 0):,}")
+    c[1].metric("Ledger entries", f"{rep.get('n_entries', 0):,}")
+    c[2].metric("Duplicates dropped", f"{rep.get('duplicates_dropped', 0) + rep.get('replaced_by_newer_revision', 0):,}")
+    c[3].metric("Days covered", f"{rep.get('days', 0):,}")
+    if rep.get("skipped"):
+        st.caption("Skipped (never filled in): " + "; ".join(f"{k}: {v}" for k, v in rep["skipped"].items()))
+    if rep.get("totals"):
+        t = rep["totals"]
+        st.caption(f"Totals ({rep.get('currency')}): revenue {t.get('revenue', 0):,.2f} · variable costs "
+                   f"{t.get('variable_cost', 0):,.2f} · fixed costs {t.get('fixed_cost', 0):,.2f} · "
+                   f"uncategorized {t.get('uncategorized', 0):,.2f} · excluded {t.get('excluded', 0):,.2f}")
+    rec = rep.get("reconciliation") or {}
+    if rec.get("categories"):
+        st.dataframe(pd.DataFrame([{"total": k, **v} for k, v in rec["categories"].items()]), hide_index=True,
+                     width="stretch")
+    for w in rep.get("warnings", []):
+        st.warning(w)
+
+
+def _finish_ledger(led, rep, *, name: str, label: str, key: str, industry: str = "other",
+                   opening_cash: float | None = None) -> None:
+    from decisiondesk.ingest import ledger as L
+    try:
+        daily = L.ledger_to_daily(led, rep, currency=rep.currency)
+        if rep.reconciliation and "reference" in rep.reconciliation:
+            L.reconcile(rep, rep.reconciliation["reference"])
+        s_ = BusinessSession.from_ledger(daily, rep, business_name=name, data_label=label, industry=industry,
+                                         opening_cash=opening_cash, models=MODELS)
+    except ValueError as exc:
+        st.session_state["ingest_report"] = rep.to_dict()
+        st.session_state["ingest_error"] = str(exc)
+        return
+    st.session_state["ingest_report"] = rep.to_dict()
+    st.session_state.pop("ingest_error", None)
+    _activate(s_, key)
+
+
 def data_section() -> None:
-    section("Your data")
-    st.markdown(f'<div class="plain">{T.esc(SAMPLE_NOTE)}</div>', unsafe_allow_html=True)
-    with st.container(key="panel_upload"):
-        section("Upload your own daily records", "CSV or Excel: date, sales and costs (optional: customers, cash)")
+    from decisiondesk.connectors.base import ConnectorError
+    from decisiondesk.ingest import files as F
+    label, _, note = PROVENANCE.get(s.data_label, (s.data_label.title(), "pos", ""))
+    section("Your data", note)
+    st.markdown(f'<div class="plain">Now showing: <b>{T.esc(biz_name())}</b> · {T.esc(label)}</div>',
+                unsafe_allow_html=True)
+    if s.data_label != "SYNTHETIC":
+        st.button("← Back to the demo business", key="data_back_demo", on_click=lambda: _load_demo("restaurant"))
+    if st.session_state.get("ingest_error"):
+        st.error(f"Import stopped: {st.session_state['ingest_error']}")
+    if st.session_state.get("ingest_report"):
+        with st.expander("Last import report", expanded=bool(st.session_state.get("ingest_error"))):
+            _show_ingest_report(st.session_state["ingest_report"])
+    tabs = st.tabs(["Daily totals file", "Transactions file", "QuickBooks sandbox", "Square sandbox"])
+
+    with tabs[0]:
+        section("Daily totals", "One row per day: date, sales, variable costs, fixed costs (optional: customers or units, "
+                "stock, purchases, net cash flow). Files are read for this session only and deleted right after loading.")
         up = st.file_uploader("Daily data file", type=["csv", "xlsx"], key="upload")
         if up is not None:
-            dest = Path("data/private/uploads")
-            dest.mkdir(parents=True, exist_ok=True)
-            path = dest / up.name
-            path.write_bytes(up.getvalue())
-            cols = list(pd.read_csv(path, nrows=0).columns) if path.suffix == ".csv" else \
-                list(pd.read_excel(path, nrows=0).columns)
-            st.caption("Match your columns (leave unused ones empty).")
-            mapping = {}
-            mc = st.columns(3)
-            for j, role in enumerate(ROLES):
-                pick = mc[j % 3].selectbox(role, ["—", *cols], key=f"map_{role}")
-                if pick != "—":
-                    mapping[pick] = role
-            c1, c2, c3 = st.columns(3)
-            name = c1.text_input("Business name", key="up_name")
-            industry = c2.selectbox("Industry", ["restaurant", "retail", "other"], key="up_ind")
-            state = c3.selectbox("State", sorted(US_STATES), key="up_state")
-            objective = c1.selectbox("Main goal", ["max_expected_profit", "min_operating_cost",
-                                                   "min_cash_shortage_risk", "min_stockout_risk"], key="up_obj")
-            max_price = c2.number_input("Max price increase (fraction)", 0.0, 0.5, 0.05, key="up_mp")
-            opening = c3.number_input("Current cash balance (USD, optional)", value=0.0, key="up_cash")
-            confirm = st.checkbox("I confirm the industry, state, goal and limits", key="up_ok")
-            if st.button("Load my data", key="up_load", disabled=not (confirm and name)):
+            try:
+                cols = list(F.read_table(up.getvalue(), up.name).columns)
+            except ValueError as exc:
+                st.error(str(exc))
+                cols = []
+            if cols:
+                mapping = {}
+                mc = st.columns(3)
+                for j, role in enumerate(ROLES):
+                    pick = mc[j % 3].selectbox(role, ["—", *cols], key=f"map_{role}")
+                    if pick != "—":
+                        mapping[pick] = role
+                c1, c2, c3 = st.columns(3)
+                name = c1.text_input("Business name", key="up_name")
+                industry = c2.selectbox("Industry", ["restaurant", "retail", "other"], key="up_ind")
+                state = c3.selectbox("State", sorted(US_STATES), key="up_state")
+                objective = c1.selectbox("Main goal", ["max_expected_profit", "min_operating_cost",
+                                                       "min_cash_shortage_risk", "min_stockout_risk"], key="up_obj")
+                max_price = c2.number_input("Max price increase (fraction)", 0.0, 0.5, 0.05, key="up_mp")
+                opening = c3.number_input("Current cash balance (USD, optional)", value=0.0, key="up_cash")
+                confirm = st.checkbox("I confirm the industry, state, goal and limits", key="up_ok")
+                if st.button("Load my data", key="up_load", disabled=not (confirm and name)):
+                    import tempfile
+                    tmp = Path(tempfile.mkdtemp(prefix="vizor-upload-"))
+                    path = tmp / Path(up.name).name
+                    try:
+                        path.write_bytes(up.getvalue())
+                        profile = BusinessProfile(name, industry, state, objective,
+                                                  {"max_price_increase": max_price}, confirmed_by_user=confirm)
+                        s_ = BusinessSession.from_upload(path, ColumnMapping(mapping), profile,
+                                                         opening_cash=opening or None, models=MODELS)
+                        _activate(s_, f"upload:{up.name}")
+                        st.rerun()
+                    except ValueError as exc:
+                        st.error(f"Upload rejected: {exc}")
+                    finally:
+                        path.unlink(missing_ok=True)
+                        tmp.rmdir()
+
+    with tabs[1]:
+        section("Transactions", "A bank, accounting or point-of-sale export with one row per transaction. You "
+                "choose which columns hold the date and amount, then confirm how each category counts.")
+        tf = st.file_uploader("Transactions file", type=["csv", "xlsx"], key="tx_upload")
+        if tf is not None:
+            try:
+                df = F.read_table(tf.getvalue(), tf.name)
+            except ValueError as exc:
+                st.error(str(exc))
+                df = None
+            if df is not None:
+                st.caption(f"{len(df):,} rows · columns: {', '.join(df.columns[:12])}")
+                sug = F.suggest_mapping(df.columns)
+                opts = ["—", *df.columns]
+
+                def pick(label, role, col):
+                    v = sug.get(role)
+                    return col.selectbox(label, opts, index=opts.index(v) if v in opts else 0, key=f"tx_{role}")
+                c1, c2, c3 = st.columns(3)
+                m = {"date": pick("Date", "date", c1), "amount": pick("Signed amount (money in +)", "amount", c2),
+                     "money_in": pick("Or: money in", "money_in", c3), "money_out": pick("Or: money out", "money_out", c1),
+                     "description": pick("Description / payee", "description", c2),
+                     "category": pick("Category / account", "category", c3), "currency": pick("Currency", "currency", c1)}
+                m = {k: (None if v == "—" else v) for k, v in m.items()}
+                fmt = c2.selectbox("Date format", ["Detect automatically", "%m/%d/%Y", "%d/%m/%Y", "%Y-%m-%d"],
+                                   key="tx_fmt")
+                cur = c3.text_input("Currency if not in the file", "USD", key="tx_cur").strip().upper() or "USD"
                 try:
-                    profile = BusinessProfile(name, industry, state, objective,
-                                              {"max_price_increase": max_price}, confirmed_by_user=confirm)
-                    s_ = BusinessSession.from_upload(path, ColumnMapping(mapping), profile,
-                                                     opening_cash=opening or None, models=MODELS)
-                    _reset_lab()
-                    st.session_state.update(session=s_, agent=DecisionAgent(s_), chat=[],
-                                            business_key=f"upload:{up.name}", last_decision=None, pending=None,
-                                            view=None, nav="Overview")
-                    st.rerun()
+                    fm = F.FileMapping(date=m["date"], amount=m["amount"], money_in=m["money_in"],
+                                       money_out=m["money_out"], description=m["description"], category=m["category"],
+                                       currency=m["currency"], default_currency=cur,
+                                       date_format=None if fmt.startswith("Detect") else fmt)
+                    fm.validate(df.columns)
+                    labels = F.label_directions(df, fm)
                 except ValueError as exc:
-                    st.error(f"Upload rejected: {exc}")
-        st.caption("Files stay on this computer (data/private, never committed). Item sales, recipes and invoices "
-                   "are the next step: see docs/ONBOARDING.md.")
+                    st.error(str(exc))
+                    labels = None
+                if labels is not None:
+                    section("How should each category count?", "Suggestions are only suggestions. Transfers, loans, "
+                            "owner draws and tax payments should be 'excluded'; anything left 'uncategorized' is "
+                            "kept out of profit and reported.")
+                    edited = st.data_editor(labels.rename(columns={"suggested": "treatment"}), hide_index=True,
+                                            width="stretch", key="tx_treat", disabled=["label", "direction", "rows", "total"],
+                                            column_config={"treatment": st.column_config.SelectboxColumn(
+                                                "Counts as", options=["revenue", "variable_cost", "fixed_cost",
+                                                                      "excluded", "uncategorized"], required=True),
+                                                "total": st.column_config.NumberColumn("Total", format="%.2f")})
+                    d1, d2, d3 = st.columns(3)
+                    tname = d1.text_input("Business name", key="tx_name")
+                    tind = d2.selectbox("Industry", ["restaurant", "retail", "other"], key="tx_ind", index=2)
+                    tcash = d3.number_input("Current cash balance (optional)", value=0.0, key="tx_cash")
+                    if st.button("Build my dashboard", key="tx_load", disabled=not tname):
+                        try:
+                            treat = {f"{r.label}|{r.direction}": r.treatment for r in edited.itertuples()}
+                            imp = F.import_transactions(df, fm, treat, filename=tf.name)
+                            _finish_ledger(imp.ledger, imp.report, name=tname, label="UPLOADED TRANSACTIONS",
+                                           key=f"tx:{tf.name}", industry=tind, opening_cash=tcash or None)
+                            st.rerun()
+                        except ValueError as exc:
+                            st.error(f"Import stopped: {exc}")
+
+    with tabs[2]:
+        section("QuickBooks Online sandbox", "Uses Intuit's Accounting API with OAuth 2.0. Credentials and tokens "
+                "stay on the server (.env and a private token file); see docs/INGESTION.md to connect.")
+        from decisiondesk.ingest import quickbooks as Q
+        try:
+            cfg = Q.QBOConfig.from_env()
+            client = Q.QuickBooksClient(cfg)
+            stt = client.status()
+        except ConnectorError as exc:
+            cfg, stt = None, None
+            st.info(str(exc))
+        if stt is not None:
+            if not stt.get("connected"):
+                st.info("Not connected yet. Run `python -m decisiondesk.ingest.quickbooks connect` once on the server.")
+            else:
+                st.caption(f"Connected · {stt['environment']} company …{stt['realm_id_last4']}"
+                           + (f" · reconnect within {stt['refresh_expires_in_days']} days"
+                              if stt.get("refresh_expires_in_days") is not None else ""))
+                q1, q2 = st.columns(2)
+                qs = q1.date_input("From", value=date.today().replace(day=1) - pd.Timedelta(days=730), key="qbo_start")
+                qe = q2.date_input("To", value=date.today(), key="qbo_end")
+                if st.button("Import from QuickBooks", key="qbo_import"):
+                    with st.spinner("Downloading invoices, sales receipts, refunds, bills and expenses..."):
+                        try:
+                            led, rep = client.pull(str(qs), str(qe))
+                            label = "QUICKBOOKS SANDBOX" if cfg.environment == "sandbox" else "QUICKBOOKS"
+                            _finish_ledger(led, rep, name="QuickBooks company", label=label, key="qbo")
+                            st.rerun()
+                        except ConnectorError as exc:
+                            st.error(str(exc))
+
+    with tabs[3]:
+        section("Square sandbox (sales only)", "Completed orders net of sales tax and tips, minus refunds. Square has "
+                "no costs, so sales are never treated as profit: add costs from QuickBooks or a file first.")
+        from decisiondesk.ingest import square as SQ
+        try:
+            scfg = SQ.SquareConfig.from_env()
+        except ConnectorError as exc:
+            scfg = None
+            st.info(str(exc))
+        if scfg is not None:
+            s1, s2 = st.columns(2)
+            ss = s1.date_input("From", value=date.today() - pd.Timedelta(days=90), key="sq_start")
+            se = s2.date_input("To", value=date.today(), key="sq_end")
+            if st.button("Preview Square sales", key="sq_preview"):
+                try:
+                    from decisiondesk.ingest import ledger as L
+                    led, rep = SQ.SquareClient(scfg).pull(str(ss), str(se))
+                    daily = L.ledger_to_daily(led, rep)
+                    st.session_state["sq_preview"] = (daily[["date", "revenue"]].rename(columns={"revenue": "net sales"}),
+                                                      rep.to_dict())
+                except (ConnectorError, ValueError) as exc:
+                    st.error(str(exc))
+            if st.session_state.get("sq_preview"):
+                prev, rep = st.session_state["sq_preview"]
+                _show_ingest_report(rep)
+                st.dataframe(prev.tail(30), hide_index=True, width="stretch")
+
     section("Where the numbers come from")
     st.dataframe(pd.DataFrame([
-        {"source": "Business records", "what it is": "Sample (synthetic) records for the demo businesses",
-         "used for": "every business number, forecast and what-if"},
-        {"source": "Item layer", "what it is": "Sample items, recipes and ingredient stock",
-         "used for": "products, stock, Decision Lab"},
+        {"source": "Demo businesses", "what it is": "Sample (synthetic) records", "used for": "the demo"},
+        {"source": "QuickBooks Online", "what it is": "Invoices, sales receipts, refunds, bills, expenses (accrual)",
+         "used for": "revenue and costs when connected"},
+        {"source": "Square", "what it is": "Completed orders and refunds", "used for": "sales preview (no costs)"},
+        {"source": "Your files", "what it is": "Daily totals or transaction exports", "used for": "everything, after you map columns"},
         {"source": "Austin menu prices", "what it is": "Public prices from restaurants' own menus, checked by hand",
          "used for": "Local Market only"},
-        {"source": "Capital One Nessie", "what it is": "Banking sandbox (simulated)",
-         "used for": "banking import demo in Advanced diagnostics"},
-        {"source": "Google Gemini", "what it is": "AI service", "used for": "explaining results in the assistant"},
+        {"source": "Google Gemini", "what it is": "AI service", "used for": "explaining results (never calculating them)"},
         {"source": "Photon", "what it is": "Messaging service", "used for": "iMessage briefings, alerts and questions"},
     ]), hide_index=True, width="stretch")
 
 
 def business_wide_actions() -> None:
+    if len(s.history) < dash_min_days():
+        st.warning(f"Whole-business options need about {dash_min_days()} days of records to simulate the next 4 "
+                   f"weeks with tested ranges; this business has {len(s.history)}. Nothing is simulated until then.")
+        return
     st.caption("Changes here are hypothetical; action effects are modelled assumptions, not proven causal "
                "effects. This model forecasts the whole business at once, so its 'current plan' profit "
                "differs by a few percent from the product-level plan above: two models of the same future.")
@@ -1565,6 +1785,9 @@ def business_wide_actions() -> None:
                     "purchase_budget_usd": budget or None, "storage_units": storage or None,
                     "max_stockout_probability": tol, "objective": "max_expected_profit"})
     out = st.session_state.get("last_decision")
+    if isinstance(out, dict) and out.get("_error"):
+        st.warning(out["_error"])
+        out = None
     if out and out.get("supported", True):
         rec = out["recommended_action"]
         (st.success if rec else st.warning)(

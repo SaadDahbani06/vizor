@@ -386,6 +386,9 @@ class OfflinePlanner:
                 text += f" Customers: {y['customers']}."
             return text + " These are recorded figures from your records."
         if intent == "cash":
+            if c.get("balance") is None:
+                return ("No cash balance has been entered for this business, so cash on hand is unknown. Add your "
+                        "current balance on the Data page; Vizor does not estimate it.")
             text = f"Cash on hand: **{_money(c['balance'])}** at the end of {y['date']}."
             b = k.get("bills_due_7_days")
             if b:
@@ -419,7 +422,8 @@ class OfflinePlanner:
         return (f"This month so far: revenue **{_money(m['revenue'])}** "
                 f"({'+' if (chg or 0) >= 0 else ''}{chg}% vs the same days last month), operating profit "
                 f"{_money(m['operating_profit'])} ({m['operating_margin_pct']}% margin), expenses "
-                f"{_money(m['expenses'])}. Cash on hand {_money(c['balance'])}.")
+                f"{_money(m['expenses'])}." + (f" Cash on hand {_money(c['balance'])}." if c.get("balance") is not None
+                                               else " No cash balance has been entered."))
 
     # ---------------------------------------------------------------- follow-ups
     LEVERS: ClassVar[tuple] = ("price_change_pct", "supply_change_pct", "ingredient_cost_change_pct",

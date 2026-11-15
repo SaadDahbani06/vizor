@@ -279,7 +279,9 @@ def test_settings_is_outside_the_navigation(at):
     at.button(key="settings_close").click().run()
     assert at.session_state["view"] is None and "Business attention" in md(at)
     at.button(key="open_data").click().run()
-    assert "Upload your own daily records" in md(at) and "not connected to a real bank" in md(at)
+    t = md(at)
+    assert "Now showing" in t and "Demo Business · Sample Data" in t and "not connected to a real bank" in t
+    assert "QuickBooks Online sandbox" in t and "Where the numbers come from" in t
 
 
 def test_attention_bar_investigate_flow(at):

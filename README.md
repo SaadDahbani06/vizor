@@ -1,203 +1,158 @@
-# Main Street Decision Intelligence — HackPrinceton starter
+# Vizor
 
-**Product:** A data-driven decision copilot for *both financial and operational choices*.
+Vizor helps the owner of a small restaurant or shop answer one question each day: *what should I
+look at, and what happens if I change something?* It reads the business's daily sales and costs,
+forecasts the next four weeks with tested models, simulates decisions such as a price change or a
+new supplier cost against the current plan, and explains the results in plain language. Vizor AI
+(Google Gemini) only explains: every number comes from deterministic Python code and is checked
+before it is shown.
 
-Organization uploads structured internal data → system selects external evidence where relevant → forecasts and tests scenarios → ranks feasible decisions → explains uncertainty and assumptions → (later) monitors and alerts.
+> **Status: hackathon project (HackPrinceton), not production software.** The demo businesses use
+> synthetic (computer-generated) records. The QuickBooks Online and Square connectors are tested
+> against mocked API responses only; they have not yet been run against a live sandbox company.
+> No accuracy claim in this repository applies to a real business. See [Limitations](#limitations).
 
-## Hackathon demo (Milestone 6: final product)
+## The problem
 
-Run `./start.sh` (opens http://localhost:8501; `./start.sh offline` is the no-AI backup). Report with measured Gemini latency and Photon checks: `docs/MILESTONE_6.md`.
+Owners of independent restaurants and shops make pricing, ordering and staffing decisions with
+little time and no analyst. Point-of-sale and accounting tools show what already happened. Vizor
+tries to fill the next step: a tested forecast with an honest range, and a side-by-side comparison
+of "do nothing" against the changes the owner can actually make, with the assumptions written down.
+
+## Features
+
+- **Overview:** yesterday compared with a typical same weekday, up to five labelled alerts, month to
+  date revenue, profit, cash and expenses.
+- **My Business:** sales and profit, products, costs, stock, cash and bills, and a four-week outlook.
+- **Decision Lab:** change a price, an order quantity, a supplier cost, demand or optional spending
+  and compare with the current plan: likely range, chance it is better, what to verify. Any action
+  needs the owner's approval; nothing is executed automatically.
+- **Local Market:** dated, manually verified public menu prices of comparable Austin restaurants.
+- **Vizor AI:** a chat panel on every page. Common questions are answered instantly from verified
+  numbers; analysis questions run the engines and Gemini writes one explanation that must cite the
+  same numbers; open questions use Gemini tool calling. A rule-based offline mode needs no API key.
+- **Your data (Settings → Data):** load a daily-totals file, a transaction export (bank, accounting
+  or POS) with column mapping and category confirmation, or connect a QuickBooks Online or Square
+  sandbox. The header always says where the numbers come from.
+- **iMessage (optional):** morning briefings, alerts and questions over Photon, opt-in only.
+
+## How it works
+
+```
+ data sources                      normalized ledger           engine                        interface
+ ───────────────                   ─────────────────           ──────                        ─────────
+ demo (synthetic)  ─────────────────────────────────┐
+ daily-totals CSV/Excel ────────────────────────────┤
+ transactions CSV/Excel ─┐                          ├─► validated daily     ─► forecasting       ─► Streamlit
+ QuickBooks Online API ──┼─► ledger entries ─► daily│   totals (one row      leaderboard          dashboard
+ Square API (sales only)─┘   (dedupe, revisions,    │   per day, gaps        (rolling-origin)  ─► Vizor AI
+                              currency, P&L check) ─┘   reported)          ─► Monte Carlo         (explains
+                                                                              scenarios          only)
+                                                                           ─► cash risk,       ─► iMessage
+                                                                              ranking vs          (Photon)
+                                                                              no action
+```
+
+- `src/decisiondesk/ingest/`: connectors and the shared ledger (`ledger.py`, `quickbooks.py`,
+  `square.py`, `files.py`). See [docs/INGESTION.md](docs/INGESTION.md).
+- `src/decisiondesk/data.py`, `profile.py`: validation of daily totals and column mapping.
+- `src/decisiondesk/leaderboard.py`, `models.py`, `backtest.py`, `calibration.py`: forecasting and
+  out-of-sample checks.
+- `src/decisiondesk/decision/`: scenario simulation and ranking against no action.
+- `src/decisiondesk/agent/`: tools, router, Gemini client and the number-grounding check.
+- `src/decisiondesk/messaging/`: Photon iMessage worker.
+- `app/streamlit_app.py`, `src/decisiondesk/ui/`: the dashboard.
+
+The models, assumptions and their limits are described in [docs/MODELS.md](docs/MODELS.md).
+
+## Installation
+
+Python 3.11 or newer, macOS or Linux (Windows works with `.venv\Scripts\activate`).
 
 ```bash
+git clone <repository-url> vizor && cd vizor
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt             # = pip install -e '.[dev,ml,ui,agent,messaging]'
-cp .env.example .env                        # optional keys: GEMINI_API_KEY, PHOTON_*, NESSIE_API_KEY
-python -m decisiondesk.precompute           # warm the validated forecast caches (a few minutes once)
-streamlit run app/streamlit_app.py          # http://localhost:8501
-# optional, in a second terminal: answer iMessages (only ONE poller may run; see below)
-python -m decisiondesk.messaging.worker run
+pip install -r requirements.txt      # = pip install -e '.[dev,ml,ui,agent,messaging]'
+cp .env.example .env                 # every key is optional; the demo runs offline
 ```
 
-**Pages:**
-- **Overview:** yesterday vs a typical day, today's briefing (at most five labelled alerts with
-  next steps), KPI cards with "How was this calculated?", the trend, and one decision to consider.
-- **My Business:** sales & profit (clickable metrics), products (one at a time), inventory,
-  expenses, cash & bills, forecasts.
-- **Decision Lab:** change a price, ingredient orders, supplier ingredient prices, demand or
-  optional spending, and compare with the current plan: likely ranges, risks, what to verify, and
-  approval required. It is linkable, for example `/?page=Decision%20Lab&product=Tacos&price=5`.
-- **Local Market:** verified public menu prices of comparable Austin restaurants.
-- **Your Financial Analyst** (sidebar on every page) answers questions with the same tools and
-  handles follow-ups ("what about 3% instead?", "which is safer?").
-- **Settings** (gear, outside the navigation): Notifications (iMessage alerts, morning briefing,
-  send the briefing to your phone), Data, and Advanced diagnostics (model validation, uncertainty
-  calibration, reconciliation, assumptions, Nessie banking, cash alert rules).
-
-**What the data and numbers are:**
-- **Business data:** realistic **synthetic** U.S. small businesses (`synthetic_v2`). The demo
-  restaurant has a five-product layer (tacos, burritos, quesadillas, nachos, drinks) with recipes
-  and an ingredient ledger (`products.py`) that reconciles to the cent with the daily totals.
-- **Local market:** **public** menu prices, manually verified and dated; never used in forecasts
-  or profit.
-- **Banking:** **simulated** Nessie records (Advanced diagnostics only).
-- **Forecasts:** models chosen by back-testing in date order against baselines, including one
-  demand model per product. Ranges come from the models' own out-of-sample errors.
-- **Scenarios:** price, supply, supplier-cost, demand and marketing changes are **simulated**
-  against the current plan. The effects (price sensitivity, switching, marketing response) are
-  **stated assumptions** with ranges, never estimated causal effects.
-- **The analyst:** Google Gemini (14 tools, manual function calling) or a rule-based offline
-  analyst. Gemini runs in the background, so the dashboard never waits for it. Every number it
-  states must match a tool value *and* the concept it is said to be.
-- **Messaging:** Photon iMessage. The dashboard and the worker answer from the same explicitly
-  published scenario; only one message poller can run at a time; nothing is sent without opt-in
-  or a confirmed click.
-- **Economic (FRED) data:** no longer shown in the dashboard (Milestone 5.4). The point-in-time
-  FRED connector remains for the `ablation`, `us_validation` and `us_demo` research workflows.
-
-**Further reading:**
-- `docs/MILESTONE_5_4.md`: what changed in 5.4, what was kept, tests, launch and remaining work.
-- `docs/MILESTONE_5_4_RESEARCH.md`: audience, jobs to be done, regulatory facts, competitors.
-- `docs/ONBOARDING.md`: the plan for connecting a real business.
-- `docs/MILESTONE_5.md`: what is ML, what is accounting and what is assumed, with measured
-  results.
-- `docs/MILESTONE_5_1_CALIBRATION.md`: how the uncertainty ranges were checked and fixed.
-- `docs/MILESTONE_5_2_AUDIT.md`: the demo-readiness audit, bugs fixed and demo risks.
-- `docs/PRESENTATION.md`: the two-minute script.
-- `docs/MILESTONE_4_5_RELEASE.md`: the Gemini and Photon setup.
-
-## What is actually implemented now?
-
-- ✅ Offline **synthetic** restaurant and retail daily samples
-- ✅ Auditable ingestion: explicit schema mapping, declared currency/timezone/metric definitions, file SHA-256, ingestion report (no raw rows), strict or `closed_zero` missing-day policy with `is_imputed` flag
-- ✅ Leakage-safe origin-anchored lag/rolling/calendar features (perturbation-tested)
-- ✅ Model leaderboard: seasonal-naive, 12-week weekday mean, Ridge, XGBoost, CatBoost (optional deps), fixed untuned hyperparameters
-- ✅ Rolling-origin validation + untouched final test; MAE, RMSE, WAPE, bias, skill vs seasonal-naive, 80% interval coverage; baseline kept unless ML wins by ≥2% on validation
-- ✅ 28-day cash risk from block-bootstrapped out-of-sample error paths, with a holdout calibration check (currently reports *not established*: only 6 windows)
-- ✅ Decision engine (`src/decisiondesk/decision/`): baselines from the **selected** forecasting models, explicit scenario formulas, common-random-number simulation, constraints, deterministic ranking for a declared objective, sensitivity analysis, evidence/provenance (`python -m decisiondesk.decide`)
-- ✅ Restaurant actions: menu price increase (constant-elasticity demand, assumed range), supplier cost negotiation (uncertain success), discretionary spending cut (possible demand loss)
-- ✅ Retail actions: weekly-review inventory policies (order-up-to service level, maintain stock, reduced purchasing, no order) with lead time, holding cost, lost sales, budget/storage/stockout constraints; `Unsupported` when inventory fields are missing
-- ✅ Objectives: max expected profit, min operating cost, min cash-shortage risk (requires user-confirmed starting cash), min stockout risk; weighted mixes only with declared weights
-- ✅ FRED/ALFRED connector with **point-in-time vintages** (live-tested), key-safe errors, raw-payload cache for offline re-runs
-- ✅ Point-in-time macro features aligned to each forecast origin (as of the last observed day; YoY within the same vintage)
-- ✅ Ablation: internal-only vs internal + FRED on identical folds/holdout (`python -m decisiondesk.ablation`)
-- ✅ Canonical row-level transaction schema (signed amounts, internal-transfer flag, cash vs scheduled) and cash-basis daily aggregation
-- ✅ Nessie sandbox (prod-api) seeded live with a fictional restaurant: 1 customer, 2 accounts, 2 merchants, 32 deposits, 8 withdrawals, 12 purchases, 4 transfers, 4 bills; importer round-trips 56/60 records with exact dates and amounts (bills unreadable, see below)
-- ✅ SEC companyfacts client (raw, unmapped) with missing-key handling
-- ✅ Real U.S. data (Milestone 3.5): Kwick365 independent-restaurant index connector (live, cached; REAL AGGREGATE), real-data leaderboard on daily orders per restaurant, with/without point-in-time FRED on identical windows (`python -m decisiondesk.us_validation kwick365`); see `docs/MILESTONE_3_5_US_VALIDATION.md`
-- ✅ Business profile confirmation (industry, U.S. state, objective, constraints), CSV/Excel column-role mapping, supported-analysis detection (`profile.py`); source-selection catalog with literal status (`sources.py`)
-- ✅ End-to-end restaurant demo: real FRED + Kwick365 context → selected-model forecasts → Milestone 3 decision engine (`python -m decisiondesk.us_demo restaurant --state TX --confirm`)
-- ✅ Milestone 5.1 uncertainty calibration: Monte Carlo paths replay whole historical out-of-sample error windows (weekly blocks made multi-week totals too narrow: 68% vs 80% target); chronological out-of-sample check of every displayed range, labelled on screen (`calibration.py`, `docs/MILESTONE_5_1_CALIBRATION.md`)
-- ✅ Milestone 5.4: four pages (Overview, My Business, Decision Lab, Local Market), sidebar "Your Financial Analyst" chat with page context and follow-ups, structured briefing alerts and decision checklists, supplier ingredient-cost scenarios, notifications under Settings (opt-in morning briefing via `worker briefing --send`), Economy and Evidence pages removed from the UI; see `docs/MILESTONE_5_4.md`
-- ✅ Milestone 5.3: Local Market page (verified, dated official menu prices of 6 Austin restaurants, normalized servings, never a price recommendation, opens the Scenario Lab) and a Daily Owner Briefing with an approval-first action checklist; research report in `docs/MILESTONE_5_3_MARKET_RESEARCH.md`
-- ✅ Milestone 5.2 audit: fixed exploding substitution demand in the Scenario Lab and a lost analyst click; see `docs/MILESTONE_5_2_AUDIT.md`
-- ✅ Milestone 5.5: premium owner UI (design system, daily briefing sentence, KPI cards, opportunity with downside bar, before-and-after Decision Lab with typed what-ifs, price-position Local Market, Ask AI side panel with links); analytics unchanged; see `docs/MILESTONE_5_5_UI.md`
-- ✅ Milestone 6: editorial redesign (Business attention bar, 6 KPI cards, Investigate, Review action with recorded approval), fast routed analyst (verified fast facts → engines → one Gemini explanation; measured median 1.5 s vs 9.3 s before, worst 7.4 s vs 74.9 s), circuit breaker and deadlines, proactive "decision needed" iMessages with DETAILS/OPTIONS; see `docs/MILESTONE_6.md`
-- ✅ Tests: 274 offline/mocked pass (Milestone 5.4 added 17 backend tests and rewrote the UI tests; Milestone 5.3 added 17; Milestone 5.2 added 2 regression tests; Milestone 5.1 added 13 calibration tests; Milestone 5 added 55: product data and dashboard numbers, Scenario Lab engine, context-aware number check, shared scenario and single poller, dashboard UI) + 10 opt-in live (`MSRD_LIVE=1 pytest -m live`, not re-run in Milestone 5); audits in `docs/MILESTONE_2_VERIFICATION.md`, `docs/MILESTONE_3_VERIFICATION.md`, `docs/MILESTONE_4_5_RELEASE.md` and `docs/MILESTONE_5.md`
-- ✅ Milestone 5 product layer: five products, recipes, Mon/Thu ingredient ledger with rationing of shared ingredients, sell-out times and a demand estimate that corrects censored sales; reconciles with daily revenue and food cost (`products.py`)
-- ✅ Milestone 5 product demand forecasts (one per product, existing leaderboard) and the Scenario Lab engine: price, ingredient orders, extra purchase, demand shock, marketing; substitution; profit vs cash; uncertainty; sensitivity; price-policy check; ranked recommendation (`decision/product_scenario.py`)
-- ✅ Milestone 5 dashboard numbers (`dashboard.py`) and redesigned seven-page Streamlit interface (`app/streamlit_app.py`, `ui/`)
-- ❌ No real individual-business SALES history evaluated (none available); real AGGREGATE restaurant data evaluated (Kwick365); synthetic scores say nothing about real accuracy
-- ❌ Iowa store-level purchase validation and procurement demo: importer built and tested on a schema fixture, but BLOCKED until the dataset-1051 export is downloaded to `data/private/iowa_liquor/`
-- ❌ Calibrated cash-shortfall probability (needs ≥20 holdout windows)
-- ❌ Hyperparameter tuning, SARIMAX/time-series models, holiday features, per-horizon reports
-- ❌ Importing Nessie bills: the server returns 400 when listing bills it accepted (its own response model requires `recurring_date`/`upcoming_payment_date`), so rent/linen/utilities are missing from the import and cash-basis fixed costs are understated by $4,380
-- ❌ Evidence that FRED features help any forecast: they did not pass validation on the synthetic businesses (which have no economic dependence by construction)
-- ❌ Merging Nessie transactions into the model pipeline (28 sandbox days ≪ the 504 days the leaderboard needs)
-- ❌ Estimated (not assumed) action effects: price elasticity, supplier success and demand side effects are assumptions; the data has no price or supplier variation to estimate them
-- ❌ Cash-shortage modeling for inventory decisions (needs payables timing); continuous action optimization (discrete candidates only); realistic synthetic inventory receipts
-- ✅ Realistic synthetic v2 businesses (Austin TX restaurant, Columbus OH hardware store): holidays, events, promotions, supplier-cost drift, recurring bills, inventory receipts, declared opening cash + ledger
-- ✅ Tool-calling AI analyst: Gemini (`google-genai`, manual function calling, multi-turn memory, model fallback chain, request budget); Claude kept as an alternative; rule-based offline fallback. Numeric grounding check with one automatic rewrite. Tools: overview, forecasts, FRED, scenarios, inventory, cash risk, alerts, banking
-- ✅ Streamlit interface (upload + mapping + confirmed profile, overview, forecast, economy, decisions, analyst chat showing the active analyst, alerts, messaging, Nessie banking)
-- ✅ Photon 2.0 iMessage (`messaging/`): recipients authorized only from opted-in Photon assignments, replies only in owner-started conversations, message-ID dedupe and idempotency keys, STOP/START/HELP/OPTIONS, alert consent and preferences, daily send cap, delivery shown only when Photon confirms `delivered`, masked phone numbers, Standard Webhooks verification, local simulator. Live read-only status verified; live send/receive not yet run
-- ✅ Validated leaderboard disk cache (keyed by data, config, model list, forecasting source code and library versions): decision view 42.5 s → 0.5 s with identical outputs; `python -m decisiondesk.precompute`
-- ✅ In-app monitoring: FRED new/revised releases and cash-shortfall rules, deduplicated, persisted, evidence-backed; Telegram opt-in coded
-- ✅ Nessie as a selectable SIMULATED banking source: import, categorize, missing-bill detection, not used for forecasts
-- ❌ Claude mode not run live (no Anthropic credential); Telegram not sent live
-- ❌ Live Gemini was unreliable on 2026-11-14 (3.8-flash 503/504; 3.5-flash about 2 min per tool-calling turn); see the release doc for exactly what passed
-- ❌ SMS (needs a Photon number + approved 10DLC campaign); public webhook endpoint (polling is used)
-- ❌ News/event feeds
-
-See `docs/ARCHITECTURE_REVIEW.md` for the problems found and the build plan.
-
-## Where each number comes from
-
-| Data | Origin | Can it support accuracy claims? |
-|---|---|---|
-| `data/examples/*_SYNTHETIC.csv`, `make_sample()` | **Synthetic business data** generated by us | No. Tests software only |
-| FRED/ALFRED series (CPI, food CPI, UNRATE, retail sales) | **Real published economic observations**, with vintage dates | Real inputs, but only useful if a real business history responds to them |
-| Kwick365 readings | **Real aggregate** of independent restaurants running KwickPOS (not a probability sample) | Only for the aggregate benchmark itself, labelled REAL_AGGREGATE_INDUSTRY |
-| Iowa Liquor Sales (dataset 1051) | **Real store-level purchases** (not customer sales), CC BY 4.0 | Procurement forecasts for that store only (not run yet: download needed) |
-| Product layer (5 products, recipes, ingredient ledger) | **Synthetic**, derived deterministically from the synthetic daily records | No. Tests software only |
-| Scenario Lab effects (product elasticities, substitution, marketing response) | **Assumptions** with stated ranges | No. They are not estimated |
-| `data/market/austin_menu_prices.csv` | **Real public menu prices** from official restaurant websites, verified 2026-11-14 | Price position only; no competitor sales, demand or margins |
-| Nessie sandbox records | **Synthetic banking records** in Capital One's simulator, generated from our synthetic restaurant | No. Demonstrates import/normalization only |
-
-## Quick start (macOS / Linux, Python 3.11+)
+## Run the demo
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
+python -m decisiondesk.precompute    # optional: warm the forecast cache once (a few minutes)
+./start.sh offline                   # opens http://localhost:8501 with the offline analyst
+./start.sh                           # same, with Vizor AI on Gemini if GEMINI_API_KEY is set
+```
+
+The demo opens on a synthetic Austin taco restaurant. A synthetic hardware store is available from
+the header. Optional extras:
+
+```bash
+python -m decisiondesk.messaging.worker run      # answer iMessages (needs PHOTON_* keys; one poller only)
+python -m decisiondesk.ingest.quickbooks connect # connect a QuickBooks sandbox company (docs/INGESTION.md)
 python -m decisiondesk.demo --industry restaurant
-python -m decisiondesk.demo --industry retail
-python -m decisiondesk.decide --scenario restaurant                     # full 9-section decision report
-python -m decisiondesk.decide --scenario restaurant --objective min_cash_shortage_risk --starting-cash 200
-python -m decisiondesk.decide --scenario retail --budget 45000           # constraints are user-declared
-python -m decisiondesk.leaderboard --industry restaurant --target revenue
-pytest -q
-MSRD_LIVE=1 pytest -q -m live          # live FRED/Nessie/Kwick365/Photon (read-only) + real Gemini calls
-python scripts/verify_milestone2.py   # read-only audit evidence
-# optional boosting models: pip install -e '.[ml]'
 ```
 
-External data (keys go in `.env`, never in code or chat; see `.env.example`):
+## Data modes
+
+| Mode | Header label | What it needs |
+|---|---|---|
+| Demo | Demo Business · Sample Data | nothing |
+| Daily totals file | Your data · uploaded file | date, revenue, variable costs, fixed costs |
+| Transactions file | Your data · uploaded transactions | date and amount (or money in / out), confirmed categories |
+| QuickBooks Online | QuickBooks sandbox · test company | Intuit developer app, sandbox company, `QBO_*` in `.env` |
+| Square | (preview only) | sandbox access token and location; sales only, so it cannot be analysed alone |
+
+Every analysis checks it has enough data first. With less than about 504 days of history the
+four-week forecast and the whole-business simulations are not shown, and the page says why;
+records, profit and costs are still shown. Without an opening cash balance there is no cash figure.
+
+## Tests
 
 ```bash
-# FRED: point-in-time ablation (first run downloads + caches vintages to data/cache/fred/)
-python -m decisiondesk.ablation --industry restaurant --target revenue
-python -m decisiondesk.ablation --industry retail --target units_sold --offline   # cached payloads only
-
-# Nessie sandbox (SYNTHETIC banking data)
-python -m decisiondesk.nessie_sandbox plan            # offline: what would be created
-python -m decisiondesk.nessie_sandbox init            # dry run: reads only
-python -m decisiondesk.nessie_sandbox init --confirm  # creates missing records (idempotent)
-python -m decisiondesk.nessie_sandbox import          # GET -> data/cache/nessie_transactions_SYNTHETIC.csv
+pytest -q                     # offline and mocked: no network, no keys
+ruff check .
+MSRD_LIVE=1 pytest -m live    # optional live checks of FRED, Nessie, Gemini, Photon (read-only)
+QBO_LIVE_TEST=1 pytest tests/test_ingestion.py -k live   # optional, after connecting a QuickBooks sandbox
 ```
 
-Nessie notes (verified live on `https://prod-api.nessieisreal.com` with a 32-hex key; `nsk_…` keys were rejected on both hosts):
-- GET endpoints return `200 []` even for an invalid key, so a successful GET does **not** prove a key works; only a write does.
-- Historical `transaction_date`/`purchase_date` values are stored as sent (0 date mismatches on import).
-- Deposit/withdrawal/purchase amounts are integers (we send whole dollars).
-- Transfers cannot name a receiving account, and come back with `id` (not `_id`) and no payer/payee. Internal transfers are therefore seeded as a transfer out of checking plus a tagged deposit into savings; both legs are flagged internal and excluded from revenue/cost.
-- Listing bills fails server-side (400) once a one-time bill exists. `init` never creates records it cannot first check for, so re-runs stay idempotent.
+The ingestion tests (`tests/test_ingestion.py`) are functional tests of API handling, normalization,
+de-duplication and reconciliation against mocked responses. They do not measure forecast accuracy.
+GitHub Actions runs ruff and the test suite on Python 3.11 and 3.13 (`.github/workflows/ci.yml`).
 
-On Windows use `.venv\\Scripts\\activate` in a suitable terminal.
+## Limitations
 
-For your own daily-aggregate CSV with `date,revenue,variable_costs,fixed_costs`:
+- **No real business has been evaluated.** Forecast accuracy figures come from synthetic data
+  (software checks) and one real aggregate restaurant index (Kwick365). They say nothing about how
+  well Vizor forecasts a particular business.
+- **Action effects are assumptions.** Price sensitivity, customers switching between items, and
+  supplier outcomes are stated ranges, not effects estimated from data. Forecasts are not causal.
+- **Integrations not live-tested:** QuickBooks Online and Square have been built against Intuit's
+  and Square's documented APIs and tested with mocks only.
+- **Single tenant.** One deployment serves one business. QuickBooks tokens and the messaging store
+  are per deployment, not per user. See [SECURITY.md](SECURITY.md) before handling real data.
+- **Product-level pages** (products, Scenario Lab, Local Market) need per-item sales, recipes and
+  stock; only the demo restaurant has them. Uploaded or connected data gets the business-level pages.
+- **Currency:** amounts are never converted between currencies; the display always uses a `$` sign.
+- The full milestone-by-milestone status, including what failed, is in [docs/STATUS.md](docs/STATUS.md).
 
-```bash
-python -m decisiondesk.demo --csv path/to/business.csv --starting-cash 12000 --currency USD
-# closures in the calendar? declare them explicitly:
-python -m decisiondesk.leaderboard --csv path/to/business.csv --currency USD --missing-days closed_zero --target revenue
-```
+## Documentation
 
-**Unit conventions:** all cash metrics are amounts in one currency, costs are positive magnitudes, one row per date, no duplicates; gaps raise unless `--missing-days closed_zero`. The baseline needs 56+ days; the leaderboard needs at least 504 days at a 28-day horizon with 6 test folds (fewer with `--holdout-folds`/`--horizon`). Leaderboards are written to `artifacts/` (gitignored, may contain derived private metrics). The CSV mode requires explicit starting cash. Row-level transactions (currently Nessie only) are normalized by `decisiondesk.transactions` on a cash basis; do not mix cash-basis series with accrual-style daily fixed costs. Operational features need `units_sold` and `inventory_on_hand`.
+- [docs/INGESTION.md](docs/INGESTION.md): QuickBooks, Square and file import setup.
+- [docs/MODELS.md](docs/MODELS.md): financial models, assumptions and limitations.
+- [docs/MILESTONE_7.md](docs/MILESTONE_7.md): ingestion and open-source readiness report.
+- [docs/STATUS.md](docs/STATUS.md): detailed implementation status.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/EVALUATION.md](docs/EVALUATION.md),
+  [docs/PRESENTATION.md](docs/PRESENTATION.md), [docs/DEVPOST.md](docs/DEVPOST.md).
 
-## Claude Code
+## Contributing, security and license
 
-1. Open **this folder** in VS Code with the Claude Code extension.
-2. Claude will pick up `CLAUDE.md` from the repository root.
-3. Paste `CLAUDE_CODE_MASTER_PROMPT.md` or invoke `/build-core`, `/review-apis`, `/train-models`, `/build-decisions`, `/build-agent`, `/verify-demo` progressively.
-4. Check actual output of `pytest -q` and the demo. Do not claim advanced accuracy on synthetic data.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). Vizor is released under the
+MIT License ([LICENSE](LICENSE)); the copyright line is pending review by the project's founders.
 
-## Teammate API review
+## Attribution
 
-Send `docs/API_REVIEW.md` and `docs/api_candidates.csv` to the teammate responsible for checking sources. All credentials remain optional in `.env.example`.
-
-## Reliability limitation
-
-This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St. Louis.
-
-Restaurant benchmarks: Kwick365 — The Independent Restaurant Index, https://kwick365.com (independent restaurants running KwickPOS; figures carry their date and sample size). Iowa data: Iowa Department of Revenue, Alcohol & Tax Operations Division, Iowa Liquor Sales (Iowa Data Hub dataset 1051), CC BY 4.0.
-
-FRED observations and SEC XBRL contain real economic and public-company data, not a substitute for the organization's own KPI histories. This starter does not establish which intervention would *cause* an improved outcome. Model assumptions must be stated. Data privacy is important: do not commit real uploads or secrets.
+This product uses the FRED® API but is not endorsed or certified by the Federal Reserve Bank of St.
+Louis. Restaurant benchmarks: Kwick365, The Independent Restaurant Index (https://kwick365.com).
+Iowa Liquor Sales: Iowa Department of Revenue, CC BY 4.0. QuickBooks is a trademark of Intuit Inc.;
+Square is a trademark of Block, Inc.; Vizor is not affiliated with either.

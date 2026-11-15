@@ -34,7 +34,7 @@ from ..decision.types import (
     OrganizationContext,
     StartingCash,
 )
-from ..leaderboard import Leaderboard, build_leaderboard_cached
+from ..leaderboard import Leaderboard, build_leaderboard, build_leaderboard_cached
 from ..macro import DEFAULT_SERIES, _latest_comparable
 from ..profile import BusinessProfile, ColumnMapping, apply_mapping, capabilities, read_upload
 from ..risk import backtested_cash_risk
@@ -152,6 +152,26 @@ class BusinessSession:
         s.state.max_stockout_probability = profile.constraints.get("max_stockout_after_arrival")
         return s
 
+    @classmethod
+    def from_ledger(cls, daily: pd.DataFrame, report, *, business_name: str, data_label: str,
+                    industry: str = "other", state: str = "TX", opening_cash: float | None = None,
+                    constraints: dict | None = None, **kw) -> BusinessSession:
+        """A business built from connector / file data (``decisiondesk.ingest``). The daily totals go
+        through the same validation as uploads; nothing is filled in beyond zero-activity days, which
+        the ingestion report counts. Without a declared opening balance there is no cash figure."""
+        from ..data import DatasetSpec
+        spec = DatasetSpec(currency=report.currency or "USD", currency_declared_by_user=bool(report.currency))
+        hist, vrep = validate_daily_frame(daily, spec=spec, source=report.source)
+        metadata = {"business_name": business_name, "industry": industry, "state": state,
+                    "currency": spec.currency, "objective": "max_expected_profit",
+                    "constraints": dict(constraints or {}), "data_origin": data_label,
+                    "ingestion": report.to_dict(), "validation_warnings": vrep.warnings,
+                    "opening_cash": None if opening_cash is None else {
+                        "amount": opening_cash, "source": "declared by the user"}}
+        s = cls(hist, metadata, dataset=report.source.replace(":", "_"), data_label=data_label, **kw)
+        s.state = s.default_state()
+        return s
+
     @property
     def industry(self) -> str:
         return self.metadata.get("industry", "other")
@@ -179,10 +199,18 @@ class BusinessSession:
     # ------------------------------------------------------------------ helpers
     def board(self, target: str) -> Leaderboard:
         if target not in self.boards:
-            self.boards[target] = build_leaderboard_cached(
-                self.history, target, dataset=self.dataset, data_label=self.data_label,
-                models=self.models, cache_dir=self.leaderboard_cache_dir)
+            if self.is_synthetic or self.leaderboard_cache_dir:
+                self.boards[target] = build_leaderboard_cached(
+                    self.history, target, dataset=self.dataset, data_label=self.data_label,
+                    models=self.models, cache_dir=self.leaderboard_cache_dir)
+            else:  # private business data: fitted models stay in this session's memory, never on disk
+                self.boards[target] = build_leaderboard(self.history, target, dataset=self.dataset,
+                                                        data_label=self.data_label, models=self.models)
         return self.boards[target]
+
+    @property
+    def is_synthetic(self) -> bool:
+        return "SYNTHETIC" in str(self.data_label).upper()
 
     def bundle(self, targets: tuple[str, ...]) -> ForecastBundle:
         key = "|".join(targets)

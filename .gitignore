@@ -12,3 +12,15 @@ data/cache/
 .DS_Store
 artifacts/
 .Rhistory
+
+# secrets and private business data (never commit)
+.env.*
+!.env.example
+.streamlit/secrets.toml
+*_tokens.json
+*.pem
+*.key
+data/uploads/
+*.private.csv
+*.xlsx
+!tests/fixtures/*.xlsx
