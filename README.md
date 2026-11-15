@@ -150,6 +150,11 @@ GitHub Actions runs ruff and the test suite on Python 3.11 and 3.13 (`.github/wo
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/EVALUATION.md](docs/EVALUATION.md),
   [docs/PRESENTATION.md](docs/PRESENTATION.md), [docs/DEVPOST.md](docs/DEVPOST.md).
 
+## Team
+
+Built at HackPrinceton by [@SaadDahbani06](https://github.com/SaadDahbani06) and
+[@GiosArchive](https://github.com/GiosArchive).
+
 ## Contributing, security and license
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). Vizor is released under the
