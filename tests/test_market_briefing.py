@@ -49,7 +49,10 @@ def test_research_log_separates_unverified_restaurants(m):
 
 
 def test_market_data_is_public_and_separate_from_private_records():
-    assert mk.MARKET_DIR.name == "market" and "private" not in str(mk.MARKET_DIR)
+    from pathlib import Path
+    repo = Path(__file__).resolve().parents[1]
+    inside = Path(mk.MARKET_DIR).resolve().relative_to(repo).parts   # judge the path inside the repo only
+    assert inside == ("data", "market") and "private" not in inside
     import inspect
 
     from decisiondesk.decision import product_scenario
