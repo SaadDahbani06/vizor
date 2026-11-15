@@ -276,3 +276,19 @@ delivery).
 - Gemini's open-question answers can still contain numbers the check cannot verify. They are
   flagged in the reply, never hidden.
 - The chat panel overlays the page below 1500 px.
+
+## 10. Follow-up (2026-11-15): simpler design; why a text went unanswered
+
+- **Design** simplified and made consistent: one font (Inter), one card style (white, 1 px grey
+  border, 12 px radius, no offset shadows), black primary buttons, blue links, colour only in small
+  status chips, and every page opening with a title plus one sentence. The revenue sparkline was
+  removed so all six KPI cards share one layout.
+- **Unanswered text:** Photon received the owner's message at 03:08 UTC, but **no poller was
+  running**. `worker run --once` answers one batch and exits; nothing was polling afterwards. A
+  reply went out (Photon: delivered) once a poller was running again.
+- **Rule:** iMessage replies need one long-running poller, either:
+  - `python -m decisiondesk.messaging.worker run` in its own terminal, or
+  - the dashboard's Settings → Notifications → "Check for replies every 5 seconds".
+
+  Only one can run at a time (lock). It works only while the laptop is awake; an always-on
+  deployment would host the worker on a server.

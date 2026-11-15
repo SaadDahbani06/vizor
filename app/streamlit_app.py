@@ -145,6 +145,13 @@ def weeks(h: int) -> str:
     return {7: "next week", 14: "next 2 weeks", 28: "next 4 weeks"}.get(int(h), f"next {h} days")
 
 
+def page_header(title: str, sub: str) -> None:
+    """Every page starts the same way: a title and one plain sentence."""
+    st.markdown(f"# {title}")
+    st.markdown(f'<div class="section-sub" style="font-size:15px;margin:4px 0 6px 0">{sub}</div>',
+                unsafe_allow_html=True)
+
+
 def section(title: str, sub: str = "") -> None:
     st.markdown(f'<div class="section-title">{T.esc(title)}</div>'
                 + (f'<div class="section-sub">{T.esc(sub)}</div>' if sub else ""), unsafe_allow_html=True)
@@ -194,7 +201,7 @@ def lab_link_for(sc: dict) -> dict:
 # ------------------------------------------------------------------------------ header
 b = _briefing()
 demo = "SYNTHETIC" in s.data_label.upper()
-hdr = st.columns([2.3, 5.0, 1.75, 0.7, 0.7], vertical_alignment="center")
+hdr = st.columns([2.3, 4.4, 1.95, 0.95, 0.6], vertical_alignment="center")
 with hdr[0]:
     sample = (f'<span class="sample" title="{T.esc(SAMPLE_NOTE)}">Demo Business · Sample Data</span>' if demo
               else f'<span class="status pos">{T.esc(s.data_label.title())}</span>')
@@ -212,7 +219,7 @@ with hdr[2]:
                      format_func=lambda k: {"restaurant": "Lone Star Taqueria", "retail": "Maple Street Hardware"}[DEMOS[k]])
     else:
         st.markdown(f'<div class="row-title">{T.esc(biz_name())}</div>', unsafe_allow_html=True)
-with hdr[3].popover(f"🔔{len(b['alerts'])}" if b["alerts"] else "🔔", width="stretch", help="Notifications"):
+with hdr[3].popover(f"🔔 {len(b['alerts'])}" if b["alerts"] else "🔔", width="stretch", help="Notifications"):
     st.markdown("**Today**")
     if not b["alerts"]:
         st.caption("Nothing needs your attention today.")
@@ -431,7 +438,7 @@ def attention_bar() -> None:
     alerts = b["alerts"]
     if not alerts:
         with st.container(key="card_attention_calm"):
-            st.markdown('<div style="display:flex;gap:14px;align-items:center"><div class="attn-icon">✓</div><div>'
+            st.markdown('<div style="display:flex;gap:12px;align-items:flex-start"><div class="attn-icon"></div><div>'
                         '<div class="attn-head">Nothing needs your attention today.</div>'
                         '<div class="attn-sub">Sales, stock, costs and bills all look normal.</div></div></div>',
                         unsafe_allow_html=True)
@@ -440,8 +447,8 @@ def attention_bar() -> None:
     more = alerts[1:3]
     with st.container(key="card_attention"):
         row = st.columns([6.2, 2.4], vertical_alignment="center")
-        row[0].markdown(f'<div style="display:flex;gap:14px;align-items:flex-start"><div class="attn-icon">!</div><div>'
-                        f'<div class="eyebrow" style="color:#5B4A1A">Business attention · {T.esc(b["weekday"])} '
+        row[0].markdown(f'<div style="display:flex;gap:12px;align-items:flex-start"><div class="attn-icon"></div><div>'
+                        f'<div class="eyebrow">Business attention · {T.esc(b["weekday"])} '
                         f'{pd.Timestamp(b["date"]):%b %d}</div>'
                         f'<div class="attn-head">{T.esc(top["title"])}.</div>'
                         f'<div class="attn-sub">{T.esc(top["detail"])} {T.esc(top["next_step"])}</div></div></div>',
@@ -452,7 +459,7 @@ def attention_bar() -> None:
                           kwargs=kw, width="stretch")
         for j, x in enumerate(more, start=1):
             r = st.columns([6.2, 2.4], vertical_alignment="center")
-            r[0].markdown(f'<div class="attn-sub" style="padding-left:52px">Also: <b>{T.esc(x["title"])}</b> · '
+            r[0].markdown(f'<div class="attn-sub" style="padding-left:22px">Also: <b>{T.esc(x["title"])}</b> · '
                           f'{T.esc(x["detail"])}</div>', unsafe_allow_html=True)
             label, page_, kw = alert_actions(x)[0]
             r[1].button(f"{label} →", key=f"go_alert_{j}", on_click=go, args=(page_,), kwargs=kw)
@@ -462,8 +469,8 @@ def page_overview() -> None:
     hour = datetime.now().hour
     hello = "Good morning" if hour < 12 else "Good afternoon" if hour < 17 else "Good evening"
     head = st.columns([5, 1.1], vertical_alignment="bottom")
-    head[0].markdown(f'<div class="eyebrow">{T.esc(biz_name())} · daily briefing</div>'
-                     f'<div class="hero">{hello}. {briefing_sentence()}</div>', unsafe_allow_html=True)
+    with head[0]:
+        page_header(f"{hello}", f"{briefing_sentence()}")
     with head[1]:
         how(b["note"] + " We compare yesterday with the average of the same weekday over the past four weeks.",
             "About the briefing")
@@ -483,9 +490,6 @@ def page_overview() -> None:
                                sub="vs same days last month",
                                tooltip=f"All sales recorded {k['period_label']}, compared with {k['comparison_label']}."),
                     unsafe_allow_html=True)
-        st.altair_chart(charts.sparkline(pd.DataFrame(rev["spark"]).assign(
-            date=lambda d: pd.to_datetime(d["date"])), "revenue", color="#9DB2FF", background="transparent"),
-            width="stretch")
         st.button("Revenue details →", key="go_revenue", on_click=go, args=("My Business",),
                   kwargs={"seg_mb_section": "Sales & profit"})
     tint = "__tpos" if (prof["value"] or 0) > 0 and prof["margin_pct"] >= prof["previous_margin_pct"] else \
@@ -669,7 +673,7 @@ def checklist(a: dict, key: str | None = None) -> None:
 
 # ================================================================================ MY BUSINESS
 def page_my_business() -> None:
-    st.markdown("# My Business")
+    page_header("My Business", "Sales, products, stock, costs and cash, in one place.")
     sec = seg("Section", MB_SECTIONS, "seg_mb_section", "Sales & profit")
     ctx = product_ctx()
     stop = pd.Timestamp(s.history["date"].max())
@@ -684,7 +688,7 @@ def section_sales(ctx, stop) -> None:
     if inv_.get("kind") == "sales_decline":
         y = b["yesterday"]
         with st.container(key="card_investigate_sales"):
-            st.markdown(f'<div class="eyebrow" style="color:#5B4A1A">Why this was flagged</div>'
+            st.markdown(f'<div class="eyebrow">Why this was flagged</div>'
                         f'<div class="idea">{T.esc(inv_["title"])}</div>'
                         f'<div class="plain">{T.esc(inv_["detail"])}</div>', unsafe_allow_html=True)
             rows = [(p["product"], f"{p['units_typical']:.0f}", f"{p['units_sold']}",
@@ -875,7 +879,7 @@ def investigate_panel(ctx, name: str, alert: dict) -> None:
     last = ps["date"].max()
     same = ps[ps["date"].dt.dayofweek == last.dayofweek]
     with st.container(key="card_investigate"):
-        st.markdown(f'<div class="eyebrow" style="color:#5B4A1A">Why this was flagged</div>'
+        st.markdown(f'<div class="eyebrow">Why this was flagged</div>'
                     f'<div class="idea">{T.esc(alert["title"])}</div><div class="plain">{T.esc(alert["detail"])}</div>',
                     unsafe_allow_html=True)
         d = ps[["date", "units_sold"]].rename(columns={"units_sold": "Orders sold"})
@@ -1029,7 +1033,7 @@ def section_outlook() -> None:
 def page_local_market() -> None:
     from decisiondesk import market as mk
     from decisiondesk.products import PRODUCT_IDS
-    st.markdown("# Local Market")
+    page_header("Local Market", "Your prices next to comparable restaurants nearby, from their own menus.")
     ctx = product_ctx()
     if ctx is None:
         return empty_state("Local price comparison needs your item prices.")
@@ -1216,9 +1220,8 @@ def _run_what_if() -> None:
 
 
 def page_decision_lab() -> None:
-    st.markdown("# Decision Lab")
-    st.markdown('<div class="section-sub" style="font-size:15.5px">Test a change before you make it. See what would '
-                'likely happen to profit, sales, cash and stock.</div>', unsafe_allow_html=True)
+    page_header("Decision Lab", "Test a change before you make it: see what would likely happen to profit, sales, "
+                "cash and stock.")
     ctx = product_ctx()
     if ctx is None:
         empty_state("Item-level what-ifs are not available for this business.")
@@ -1388,7 +1391,8 @@ def lab(ctx) -> None:
                  else f"Should I buy more {name.lower()} ingredients?" if sc.supply_change_pct or sc.extra_units
                  else "What should I do?")
             st.rerun()
-        if e2.button("Use for iMessage answers", key="lab_publish", width="stretch"):
+        if e2.button("Use on iMessage", key="lab_publish", width="stretch",
+                     help="iMessage answers will use this scenario"):
             _publish()
         if st.session_state.get("lab_published"):
             st.success(st.session_state["lab_published"])
