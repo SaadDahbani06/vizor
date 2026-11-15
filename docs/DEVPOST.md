@@ -98,8 +98,8 @@ writes against the tool outputs.
 │                            DATA LAYER                                │
 ├──────────────────┬──────────────────┬───────────────┬────────────────┤
 │ Daily business   │ Product layer    │ Austin menu   │ Nessie bank    │
-│ records (CSV     │ 5 items, recipes,│ prices (public,│ sandbox        │
-│ upload or demo)  │ ingredient ledger│ hand-verified)│ (simulated)    │
+│ records (CSV     │ 5 items, recipes,│ prices (public│ sandbox        │
+│ upload or demo)  │ ingredient ledger│ hand-checked) │ (simulated)    │
 └────────┬─────────┴────────┬─────────┴───────┬───────┴───────┬────────┘
          ▼                  ▼                 │               │
 ┌──────────────────────────────────────────┐  │               │
